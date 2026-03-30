@@ -38,6 +38,12 @@ allprojects {
         // Required for react-native-background-fetch
         maven { url("${project(':react-native-background-fetch').projectDir}/libs") }
     }
+    configurations.all {
+        resolutionStrategy {
+            force 'androidx.core:core:1.15.0'
+            force 'androidx.core:core-ktx:1.15.0'
+        }
+    }
 }
 
 apply plugin: "com.facebook.react.rootproject"
