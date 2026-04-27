@@ -1,21 +1,18 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { useNavigation } from '@react-navigation/native';
-import { SafeAreaView, ScrollView } from 'react-native';
-import { Spinner, Text, YStack, XStack, Button, Input, useTheme } from 'tamagui';
 import { toast, ToastPosition } from '@backpackapp-io/react-native-toast';
+import { faAsterisk, faBuilding, faBuildingUser, faChair, faHospital, faHotel, faHouse, faSchool } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faBuildingUser, faHouse, faBuilding, faHotel, faHospital, faSchool, faChair, faAsterisk } from '@fortawesome/free-solid-svg-icons';
-import { Place } from '@fleetbase/sdk';
-import { useAuth } from '../contexts/AuthContext';
-import { formattedAddressFromSerializedPlace, restoreFleetbasePlace } from '../utils/location';
-import { isEmpty, toBoolean } from '../utils';
-import usePromiseWithLoading from '../hooks/use-promise-with-loading';
-import useCurrentLocation from '../hooks/use-current-location';
-import useSavedLocations from '../hooks/use-saved-locations';
-import useFleetbase from '../hooks/use-fleetbase';
-import { useAppTheme } from '../hooks/use-app-theme';
+import { useNavigation } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
+import { SafeAreaView, ScrollView } from 'react-native';
+import { Button, Input, Spinner, Text, useTheme, XStack, YStack } from 'tamagui';
 import ExpandableSelect from '../components/ExpandableSelect';
 import PlaceMapView from '../components/PlaceMapView';
+import { useAuth } from '../contexts/AuthContext';
+import useCurrentLocation from '../hooks/use-current-location';
+import useFleetbase from '../hooks/use-fleetbase';
+import usePromiseWithLoading from '../hooks/use-promise-with-loading';
+import { toBoolean } from '../utils';
+import { formattedAddressFromSerializedPlace, restoreFleetbasePlace } from '../utils/location';
 
 const LocationPropertyInput = ({ value, onChange, placeholder }) => {
     return (

@@ -1,13 +1,13 @@
-import React, { createContext, useContext, useReducer, useMemo, useEffect, useCallback, useRef } from 'react';
+import { Driver } from '@fleetbase/sdk';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
 import { Platform } from 'react-native';
 import { EventRegister } from 'react-native-event-listeners';
-import { Driver } from '@fleetbase/sdk';
-import { later, isArray, navigatorConfig } from '../utils';
-import useStorage, { storage } from '../hooks/use-storage';
+import { LoginManager as FacebookLoginManager } from 'react-native-fbsdk-next';
 import useFleetbase from '../hooks/use-fleetbase';
+import useStorage, { storage } from '../hooks/use-storage';
+import { later, navigatorConfig } from '../utils';
 import { useLanguage } from './LanguageContext';
 import { useNotification } from './NotificationContext';
-import { LoginManager as FacebookLoginManager } from 'react-native-fbsdk-next';
 
 const AuthContext = createContext();
 
@@ -263,6 +263,10 @@ export const AuthProvider = ({ children }) => {
         async (code) => {
             dispatch({ type: 'VERIFY', isVerifyingCode: true });
             try {
+                console.log('=== SENDING TO BACKEND ===');
+                console.log('Phone string:', state.phone);
+                console.log('Code string:', code);
+                console.log('==========================');
                 const driver = await fleetbase.drivers.verifyCode(state.phone, code);
                 createDriverSession(driver);
                 dispatch({ type: 'VERIFY', driver, isVerifyingCode: false });
