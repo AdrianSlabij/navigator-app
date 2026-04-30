@@ -202,6 +202,7 @@ export const AuthProvider = ({ children }) => {
         async (phone, method = 'sms') => {
             dispatch({ type: 'CREATING_ACCOUNT', phone, isSendingCode: true });
             try {
+                console.log('Available driver methods:', Object.keys(fleetbase.drivers || {}));
                 await fleetbase.drivers.requestCreationCode(phone, method);
                 dispatch({ type: 'CREATING_ACCOUNT', phone, isSendingCode: false });
             } catch (error) {
@@ -263,10 +264,6 @@ export const AuthProvider = ({ children }) => {
         async (code) => {
             dispatch({ type: 'VERIFY', isVerifyingCode: true });
             try {
-                console.log('=== SENDING TO BACKEND ===');
-                console.log('Phone string:', state.phone);
-                console.log('Code string:', code);
-                console.log('==========================');
                 const driver = await fleetbase.drivers.verifyCode(state.phone, code);
                 createDriverSession(driver);
                 dispatch({ type: 'VERIFY', driver, isVerifyingCode: false });

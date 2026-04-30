@@ -1,24 +1,29 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigation } from '@react-navigation/native';
-import { SafeAreaView, Pressable, Keyboard, StyleSheet } from 'react-native';
-import { Spinner, XStack, Text, YStack, useTheme, Button } from 'tamagui';
-import { toast, ToastPosition } from '@backpackapp-io/react-native-toast';
+import { toast } from '@backpackapp-io/react-native-toast';
+import { faPaperPlane } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faPaperPlane, faKey, faArrowRight } from '@fortawesome/free-solid-svg-icons';
-import { isValidPhoneNumber } from '../utils';
-import { useAuth } from '../contexts/AuthContext';
-import PhoneInput from '../components/PhoneInput';
+import { useNavigation } from '@react-navigation/native';
+import React, { useState } from 'react';
+import { Keyboard, Pressable, SafeAreaView, StyleSheet } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import { Button, Spinner, Text, XStack, YStack, useTheme } from 'tamagui';
 import BackButton from '../components/BackButton';
 import Input from '../components/Input';
-import LinearGradient from 'react-native-linear-gradient';
+import PhoneInput from '../components/PhoneInput';
+import { useAuth } from '../contexts/AuthContext';
+import { useConfig } from '../contexts/ConfigContext';
+import { isValidPhoneNumber } from '../utils';
 
 const CreateAccountScreen = ({ route }) => {
+    const { resolveConnectionConfig } = useConfig();
+    const FLEETBASE_KEY = resolveConnectionConfig('FLEETBASE_KEY');
     const params = route.params || {};
     const navigation = useNavigation();
     const theme = useTheme();
     const { requestCreationCode, isSendingCode, phone: phoneState } = useAuth();
+
+    const [name, setName] = useState(params.name || '');
+    const [email, setEmail] = useState(''); // Added email state
     const [phone, setPhone] = useState(phoneState);
-    const [name, setName] = useState(params.name);
 
     const handleSendVerificationCode = async () => {
         if (isSendingCode) {
@@ -29,9 +34,36 @@ const CreateAccountScreen = ({ route }) => {
             return toast.error('Invalid phone number provided.');
         }
 
+        if (!name || !email) {
+            return toast.error('Name and email are required.');
+        }
+
         try {
-            await requestCreationCode(phone);
-            navigation.navigate('CreateAccountVerify', { name, phone });
+            // 1. Create the Driver in Fleetbase
+            const response = await fetch('https://api.fleetbase.io/v1/drivers', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${FLEETBASE_KEY}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: name,
+                    email: email,
+                    phone: phone,
+                }),
+            });
+
+            const fleetbaseData = await response.json();
+            console.log('Fleetbase Raw Response:', fleetbaseData);
+
+            // If Fleetbase returns an error, catch it before navigating
+            if (!response.ok) {
+                const errorMessage = fleetbaseData.errors ? fleetbaseData.errors[0] : 'Failed to create driver.';
+                throw new Error(errorMessage);
+            }
+
+            // 2. Proceed with your original Auth flow
+            navigation.navigate('PhoneLogin');
         } catch (error) {
             toast.error(error.message);
         }
@@ -54,6 +86,8 @@ const CreateAccountScreen = ({ route }) => {
                     </XStack>
                     <YStack space='$3'>
                         <Input value={name} onChangeText={(text) => setName(text)} placeholder='Enter your name' />
+                        {/* Added Email Input */}
+                        <Input value={email} onChangeText={(text) => setEmail(text)} placeholder='Enter your email address' autoCapitalize='none' keyboardType='email-address' />
                         <PhoneInput value={phone} onChange={(phoneNumber) => setPhone(phoneNumber)} />
                     </YStack>
                     <Button size='$5' mt='$2' onPress={handleSendVerificationCode} bg='$primary' width='100%' opacity={isSendingCode ? 0.75 : 1} disabled={isSendingCode} rounded>

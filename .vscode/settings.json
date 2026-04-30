@@ -17,5 +17,6 @@
     },
     "[swift]": {
         "editor.defaultFormatter": "vknabel.vscode-swiftformat"
-    }
+    },
+    "js/ts.tsdk.path": "node_modules\\typescript\\lib"
 }

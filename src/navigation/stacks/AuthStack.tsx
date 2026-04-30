@@ -1,9 +1,9 @@
+import { useIsNotAuthenticated } from '../../contexts/AuthContext';
+import CreateAccountScreen from '../../screens/CreateAccountScreen';
+import CreateAccountVerifyScreen from '../../screens/CreateAccountVerifyScreen';
 import LoginScreen from '../../screens/LoginScreen';
 import PhoneLoginScreen from '../../screens/PhoneLoginScreen';
 import PhoneLoginVerifyScreen from '../../screens/PhoneLoginVerifyScreen';
-import CreateAccountScreen from '../../screens/CreateAccountScreen';
-import CreateAccountVerifyScreen from '../../screens/CreateAccountVerifyScreen';
-import { useIsNotAuthenticated, useIsAuthenticated } from '../../contexts/AuthContext';
 
 export const Login = {
     if: useIsNotAuthenticated,

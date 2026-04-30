@@ -1,17 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigation } from '@react-navigation/native';
-import { SafeAreaView, Image, StyleSheet, Dimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Spinner, Stack, Text, YStack, XStack, useTheme, Button } from 'tamagui';
-import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { toast } from '@backpackapp-io/react-native-toast';
 import { faPlug } from '@fortawesome/free-solid-svg-icons';
-import { toast, ToastPosition } from '@backpackapp-io/react-native-toast';
-import { titleize } from '../utils/format';
-import { navigatorConfig } from '../utils';
-import { PhoneLoginButton, AppleLoginButton, FacebookLoginButton, GoogleLoginButton } from '../components/Buttons';
-import useOAuth from '../hooks/use-oauth';
-import LinearGradient from 'react-native-linear-gradient';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { useNavigation } from '@react-navigation/native';
+import React from 'react';
+import { Dimensions, Image, SafeAreaView, StyleSheet } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
+import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button, Spinner, Text, YStack, useTheme } from 'tamagui';
+import { PhoneLoginButton, SignUpButton } from '../components/Buttons';
+import useOAuth from '../hooks/use-oauth';
+import { navigatorConfig } from '../utils';
+import { titleize } from '../utils/format';
 
 const LoginScreen = () => {
     const navigation = useNavigation();
@@ -22,6 +22,10 @@ const LoginScreen = () => {
 
     const handlePhoneLogin = () => {
         navigation.navigate('PhoneLogin');
+    };
+
+    const handleSignUp = () => {
+        navigation.navigate('CreateAccount');
     };
 
     const handleOAuthLogin = async (provider) => {
@@ -45,6 +49,7 @@ const LoginScreen = () => {
             </YStack>
             <SafeAreaView style={{ flex: 1 }}>
                 <YStack flex={1} justifyContent='flex-end' alignItems='center' space='$3' px='$5' pb='$6'>
+                    <SignUpButton onPress={handleSignUp} />
                     <PhoneLoginButton onPress={handlePhoneLogin} />
                     <Text color='$textSecondary' fontSize='$2'>
                         v{DeviceInfo.getVersion()} #{DeviceInfo.getBuildNumber()}
