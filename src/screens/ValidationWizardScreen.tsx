@@ -1,84 +1,124 @@
-//todo: handle data synch between fleetbase and beesure backend (ex. payload received by beesure but failed being sent to Fleetbase, etc.)
-//todo: handle wifi connectivity issues...maybe we can save the validation payload in local storage and have a background process that checks for unsent payloads and tries to resend them when connectivity is back?
 import { Order } from '@fleetbase/sdk';
 import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
 import { Alert, ScrollView, TextInput } from 'react-native';
+import ImagePicker from 'react-native-image-crop-picker';
 import { Button, Image, Spinner, Text, XStack, YStack, useTheme } from 'tamagui';
+
 import useFleetbase from '../hooks/use-fleetbase';
 import { toast } from '../utils/toast';
-// import ImagePicker from 'react-native-image-crop-picker';
+
+//const BEESURE_API_BASE = 'https://api.your-beesure-backend.com';
+const PRESIGN_API_URL = `https://6bfckbk6zktuydxhc5gc3amauq0sneet.lambda-url.us-east-1.on.aws/`;
 
 const ValidationWizardScreen = ({ route }) => {
-    const { activity, order: orderData, waypoint: waypointData } = route.params;
+    const { activity, order: orderData } = route.params;
     const { adapter } = useFleetbase();
     const navigation = useNavigation();
     const theme = useTheme();
 
-    // Reconstruct Fleetbase instances
     const order = new Order(orderData, adapter);
 
-    // Form State
     const [step, setStep] = useState(1);
     const [photos, setPhotos] = useState([]);
     const [notes, setNotes] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    //Opens the native camera, crops the image, and saves the local path
     const handleTakePhoto = async () => {
         try {
-            //to do: take photo (of id/subject/etc..)
-            // Example using react-native-image-crop-picker
-            /*
             const image = await ImagePicker.openCamera({
                 width: 1024,
                 height: 1024,
                 cropping: true,
-                includeBase64: true
+                mediaType: 'photo',
+                compressImageQuality: 0.8,
             });
-            setPhotos([...photos, `data:${image.mime};base64,${image.data}`]);
-            */
 
-            // Mocked photo for demonstration:
-            Alert.alert('Camera', 'Camera opens here. Save photo to state.');
-            setPhotos([...photos, 'mock_image_uri_or_base64']);
+            setPhotos((prev) => [...prev, image.path]);
         } catch (error) {
-            console.warn('Error taking photo:', error);
+            if (error.message !== 'User cancelled image selection') {
+                console.warn('Camera Error:', error);
+                Alert.alert('Error', 'Failed to open camera.');
+            }
         }
     };
 
-    //todo: add a function that bundles the besure validation payload and stores into beesure (using presigned s3 urls for images and save into db...probably need to call a custom backend endpoint to handle this)
-
-    //submit results to fleetbase, update activity to completed, and navigate back to order screen
-    const submitOrderToFleetbase = async () => {
+    // Get Presigned S3 URLs, Upload Blobs to S3, Post Keys to Beesure, Complete via Fleetbase
+    const runValidationSubmission = async () => {
         setIsSubmitting(true);
-        try {
-            // need to upload the photos to your backend first and get file IDs back
-            // const fileIds = await uploadPhotosToServer(photos);
+        const s3Keys = [];
 
-            //  updating the activity to 'completed'
-            // Create the custom FLEETBASE payload with the form data
-            const payload = {
+        try {
+            //Request Pre-signed URLs from Beesure Backend
+            const presignRes = await fetch(PRESIGN_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ count: photos.length }),
+            });
+
+            if (!presignRes.ok) throw new Error('Failed to fetch pre-signed URLs.');
+
+            const { presignedData } = await presignRes.json();
+            // Expected: [{ uploadUrl: string, key: string }, ...]
+
+            //Upload images directly to S3
+            for (let i = 0; i < photos.length; i++) {
+                const localUri = photos[i];
+                const { uploadUrl, key } = presignedData[i];
+
+                const imgBlob = await (await fetch(localUri)).blob();
+
+                const s3Res = await fetch(uploadUrl, {
+                    method: 'PUT',
+                    body: imgBlob,
+                    headers: { 'Content-Type': imgBlob.type || 'image/jpeg' },
+                });
+
+                if (!s3Res.ok) throw new Error(`S3 Upload failed for image ${i}`);
+                s3Keys.push(key);
+            }
+
+            // Post the bundle to Beesure Backend
+            const beesurePayload = {
+                order_id: orderData.id,
+                activity_id: activity.id,
+                notes: notes,
+                image_keys: s3Keys,
+            };
+
+            const beesureRes = await fetch(`${PRESIGN_API_URL}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(beesurePayload),
+            });
+
+            if (!beesureRes.ok) throw new Error('Beesure backend failed to process validation.');
+
+            //Call Fleetbase to complete the order activity status
+            const fleetbasePayload = {
                 activity: {
                     ...activity,
                     status: 'completed',
-                    code: 'completed', // Force it to complete
+                    code: 'completed',
                 },
                 attributes: {
                     validation_notes: notes,
-                    validation_photos: photos, // Or fileIds
+                    validation_s3_keys: s3Keys,
                 },
             };
 
-            // Send payload to Fleetbase
-            await order.updateActivity(payload);
+            await order.updateActivity(fleetbasePayload);
 
-            toast.success('Validation complete!');
-
-            // Navigate back to the Order screen, order is now complete
+            toast.success('Validation Submitted Successfully!');
             navigation.goBack();
         } catch (error) {
-            console.error('Validation submission failed', error);
-            Alert.alert('Error', 'Failed to submit validation. Please try again.');
+            console.error('Submission Flow Error:', error);
+
+            // TODO: Implementation for offline persistence (AsyncStorage)
+            // should be triggered here if error.message indicates a network failure.
+
+            Alert.alert('Submission Failed', error.message || 'An unexpected error occurred.');
         } finally {
             setIsSubmitting(false);
         }
@@ -88,21 +128,20 @@ const ValidationWizardScreen = ({ route }) => {
         <YStack flex={1} bg='$background' padding='$4' safeArea>
             <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}>
                 <Text fontSize={24} fontWeight='bold' mb='$4'>
-                    Validation Process - Step {step} of 2
+                    Validation Step {step} of 2
                 </Text>
 
                 {step === 1 && (
                     <YStack space='$4' flex={1}>
                         <Text fontSize={16} color='$textPrimary'>
-                            Please take photos of the items to validate their condition.
+                            Take photos of the items or subject to validate condition.
                         </Text>
 
-                        <Button onPress={handleTakePhoto} bg='$info' color='$white'>
-                            Open Camera
+                        <Button onPress={handleTakePhoto} bg='$info' color='white' pressStyle={{ opacity: 0.8 }}>
+                            Take Photo
                         </Button>
 
-                        {/* Display captured photos */}
-                        <XStack flexWrap='wrap' gap='$2'>
+                        <XStack flexWrap='wrap' gap='$2' mt='$2'>
                             {photos.map((uri, idx) => (
                                 <YStack key={idx} width={100} height={100} bg='$gray3' borderRadius='$2' overflow='hidden'>
                                     <Image source={{ uri }} width={100} height={100} />
@@ -111,45 +150,50 @@ const ValidationWizardScreen = ({ route }) => {
                         </XStack>
 
                         <YStack flex={1} justifyContent='flex-end'>
-                            <Button bg='$success' color='$white' disabled={photos.length === 0} opacity={photos.length === 0 ? 0.5 : 1} onPress={() => setStep(2)}>
-                                Next Step
+                            <Button bg='$success' color='white' disabled={photos.length === 0} opacity={photos.length === 0 ? 0.5 : 1} onPress={() => setStep(2)}>
+                                Continue to Notes
                             </Button>
                         </YStack>
                     </YStack>
                 )}
 
-                {/* todo: make this isntead of notes a propper validation workflow */}
-
                 {step === 2 && (
                     <YStack space='$4' flex={1}>
                         <Text fontSize={16} color='$textPrimary'>
-                            Fill out the validation form notes below.
+                            Additional Validation Notes
                         </Text>
 
                         <TextInput
                             style={{
                                 height: 150,
-                                borderColor: 'gray',
+                                borderColor: theme.gray8?.val || '#ccc',
                                 borderWidth: 1,
                                 borderRadius: 8,
                                 padding: 12,
                                 textAlignVertical: 'top',
                                 color: theme.textPrimary?.val || 'black',
+                                backgroundColor: theme.background?.val,
                             }}
                             multiline
-                            placeholder='Enter validation notes...'
+                            placeholder='Enter notes here...'
                             placeholderTextColor='#999'
                             value={notes}
                             onChangeText={setNotes}
                         />
 
                         <YStack flex={1} justifyContent='flex-end' space='$3'>
-                            <Button onPress={() => setStep(1)} bg='$gray5'>
-                                Back
+                            <Button onPress={() => setStep(1)} bg='$gray5' color='$textPrimary'>
+                                Back to Photos
                             </Button>
 
-                            <Button bg='$success' onPress={submitOrderToFleetbase} disabled={isSubmitting}>
-                                {isSubmitting ? <Spinner color='white' /> : <Text color='white'>Complete Validation</Text>}
+                            <Button bg='$success' onPress={runValidationSubmission} disabled={isSubmitting}>
+                                {isSubmitting ? (
+                                    <Spinner color='white' />
+                                ) : (
+                                    <Text color='white' fontWeight='600'>
+                                        Complete & Finish Order
+                                    </Text>
+                                )}
                             </Button>
                         </YStack>
                     </YStack>

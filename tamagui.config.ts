@@ -1,6 +1,6 @@
 import { config as baseConfig } from '@tamagui/config/v3';
 import { createTamagui, createTheme, createTokens } from 'tamagui';
-import { config, parseConfigObjectString, flattenTailwindCssColorsObject } from './src/utils/tamagui';
+import { config, flattenTailwindCssColorsObject, parseConfigObjectString } from './src/utils/tamagui';
 
 const customColors = parseConfigObjectString(config('CUSTOM_COLORS', ''));
 const customColorsDark = parseConfigObjectString(config('CUSTOM_COLORS_DARK', ''));
@@ -137,29 +137,33 @@ const lightBase = {
     textPrimary: colors.gray[800],
     textSecondary: colors.gray[600],
     textPlaceholder: colors.gray[400],
-    primary: colors.blue[500],
-    primaryBorder: colors.blue[200],
-    primaryText: colors.blue[900],
+
+    primary: colors.yellow[500],
+    primaryBorder: colors.yellow[600],
+    primaryText: colors.gray[900],
+    borderActive: colors.yellow[500],
+
     secondary: colors.gray[200],
     secondaryBorder: colors.gray[500],
     borderColor: colors.gray[200],
     borderColorWithShadow: colors.gray[300],
     shadowColor: colors.gray[900],
-    borderActive: colors.blue[600],
     default: colors.gray[600],
     success: colors.green[700],
     error: colors.red[600],
-    warning: colors.yellow[600],
+
+    warning: colors.orange[600],
     info: colors.blue[700],
+
     defaultBorder: colors.gray[700],
     successBorder: colors.green[700],
     errorBorder: colors.red[700],
-    warningBorder: colors.yellow[700],
+    warningBorder: colors.orange[700],
     infoBorder: colors.blue[700],
     defaultText: colors.gray[100],
     successText: colors.green[100],
     errorText: colors.red[100],
-    warningText: colors.yellow[100],
+    warningText: colors.orange[100],
     infoText: colors.blue[100],
     ...flattenTailwindCssColorsObject(colors),
 };
@@ -176,29 +180,33 @@ const darkBase = {
     textPrimary: colors.gray[200],
     textSecondary: colors.gray[400],
     textPlaceholder: colors.gray[600],
-    primary: colors.blue[500],
-    primaryBorder: colors.blue[600],
-    primaryText: colors.blue[100],
+
+    primary: colors.yellow[500],
+    primaryBorder: colors.yellow[600],
+    primaryText: colors.gray[900],
+    borderActive: colors.yellow[500],
+
     secondary: colors.gray[700],
     secondaryBorder: colors.gray[400],
     borderColor: colors.gray[800],
     borderColorWithShadow: colors.gray[700],
     shadowColor: colors.gray[900],
-    borderActive: colors.blue[500],
     default: colors.gray[800],
     success: colors.green[900],
     error: colors.red[900],
-    warning: colors.yellow[900],
+
+    warning: colors.orange[900],
     info: colors.blue[900],
+
     defaultBorder: colors.gray[600],
     successBorder: colors.green[600],
     errorBorder: colors.red[600],
-    warningBorder: colors.yellow[600],
+    warningBorder: colors.orange[600],
     infoBorder: colors.blue[600],
     defaultText: colors.gray[100],
     successText: colors.green[100],
     errorText: colors.red[100],
-    warningText: colors.yellow[100],
+    warningText: colors.orange[100],
     infoText: colors.blue[100],
     ...flattenTailwindCssColorsObject(colors),
 };
@@ -206,6 +214,12 @@ const darkBase = {
 // Define Themes Using Light and Dark Bases
 export const themes = {
     // Light mode themes
+    lightYellow: createTheme({
+        ...lightBase,
+        primary: colors.yellow[500],
+        primaryBorder: colors.yellow[600],
+        primaryText: colors.gray[900],
+    }),
     lightBlue: createTheme({
         ...lightBase,
         primary: colors.blue[500],
@@ -237,7 +251,12 @@ export const themes = {
         primaryText: 'white',
     }),
 
-    // Dark mode themes
+    darkYellow: createTheme({
+        ...darkBase,
+        primary: colors.yellow[500],
+        primaryBorder: colors.yellow[600],
+        primaryText: colors.gray[900],
+    }),
     darkBlue: createTheme({
         ...darkBase,
         primary: colors.blue[500],
