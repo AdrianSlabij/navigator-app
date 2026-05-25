@@ -2,7 +2,7 @@ import { Order, Place } from '@fleetbase/sdk';
 import { faBan, faCheck, faFlagCheckered, faPaperPlane, faPenToSquare } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { PortalHost } from '@gorhom/portal';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { format as formatDate } from 'date-fns';
 import { titleize } from 'inflected';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -71,6 +71,13 @@ const OrderScreen = ({ route }) => {
     const [loadingOverlayMessage, setLoadingOverlayMessage] = useState();
     const [currentDestination, setCurrentDestination] = useState();
     const [isAccepting, setIsAccepting] = useState(false);
+    const [isMapMounted, setIsMapMounted] = useState(false);
+    useFocusEffect(
+        useCallback(() => {
+            setIsMapMounted(true);
+            return () => setIsMapMounted(false);
+        }, [])
+    );
     const memoizedOrder = useMemo(() => order, [order?.id]);
     const { trackerData } = useOrderResource(memoizedOrder, { loadEta: false });
     const distanceLoadedRef = useRef(false);
@@ -520,16 +527,23 @@ const OrderScreen = ({ route }) => {
                             </XStack>
                         </XStack>
                     </YStack>
-                    <LiveOrderRoute
-                        order={order}
-                        zoom={4}
-                        edgePaddingTop={80}
-                        edgePaddingBottom={30}
-                        edgePaddingLeft={30}
-                        edgePaddingRight={30}
-                        focusCurrentDestination={isMultipleWaypointOrder}
-                        currentDestination={destination}
-                    />
+
+                    {/* Mount the map only when the screen is focused. Fixes this issue: Attempt to invoke virtual method 'boolean java.util.ArrayList.isEmpty()' on a null object reference */}
+                    {isMapMounted ? (
+                        <LiveOrderRoute
+                            order={order}
+                            zoom={4}
+                            edgePaddingTop={80}
+                            edgePaddingBottom={30}
+                            edgePaddingLeft={30}
+                            edgePaddingRight={30}
+                            focusCurrentDestination={isMultipleWaypointOrder}
+                            currentDestination={destination}
+                        />
+                    ) : (
+                        /* Render an empty placeholder that takes up the same space when unfocused */
+                        <YStack flex={1} bg='$background' />
+                    )}
                 </YStack>
                 <ActionContainer space='$3'>
                     {isOldAndroid && showLoadingOverlay && (

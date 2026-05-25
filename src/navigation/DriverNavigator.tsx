@@ -210,6 +210,9 @@ const DriverDashboardTab = createNativeStackNavigator({
 
 const DriverTaskTab = createNativeStackNavigator({
     initialRouteName: 'DriverOrderManagement',
+    screenOptions: {
+        detachInactiveScreens: false,
+    },
     screens: {
         DriverOrderManagement: {
             screen: DriverOrderManagementScreen,
