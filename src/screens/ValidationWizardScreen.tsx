@@ -6,19 +6,22 @@ import ImagePicker from 'react-native-image-crop-picker';
 import { Button, Image, Spinner, Text, XStack, YStack, useTheme } from 'tamagui';
 import LoadingOverlay from '../components/LoadingOverlay';
 import QrCodeScanner from '../components/QrCodeScanner';
+import { useAuth } from '../contexts/AuthContext';
 import { useTempStore } from '../contexts/TempStoreContext';
 import useFleetbase from '../hooks/use-fleetbase';
 import { toast } from '../utils/toast';
 
-const PRESIGN_API_URL = `https://6bfckbk6zktuydxhc5gc3amauq0sneet.lambda-url.us-east-1.on.aws/`;
-// TODO: Replace this with actual backend endpoint when you have it
-const BEESURE_BACKEND_URL = `https://your-future-backend-url.com/api/report`;
+import Config from 'react-native-config';
+
+const PRESIGN_API_URL = Config.PRESIGN_API_URL;
+const VALIDATION_COMPLETE_API_URL = Config.VALIDATION_COMPLETE_API_URL;
 
 const ValidationWizardScreen = ({ route }) => {
     const { activity, order: orderData } = route.params;
     const { adapter } = useFleetbase();
     const navigation = useNavigation();
     const theme = useTheme();
+    const { driver } = useAuth();
 
     const order = new Order(orderData, adapter);
     const { store, setValue } = useTempStore();
@@ -178,9 +181,40 @@ const ValidationWizardScreen = ({ route }) => {
                 s3Keys.push(key);
             }
 
-            // 3. (Beesure Backend Call goes here when ready)
-            // Send the validation data to your backend for processing and storage
-            //beesure backend url?
+            // 3. Beesure Backend Call
+            // Send the validation data to backend for processing and storage
+            const internalValidationId = order.meta?.external_order_id;
+
+            if (!internalValidationId) {
+                throw new Error('Critical Error: This order is missing the BeeSure Validation ID.');
+            }
+
+            if (!driver || !driver.id) {
+                throw new Error('Critical Error: Driver session lost. Please log out and log back in.');
+            }
+
+            const payload = {
+                validationId: internalValidationId,
+                fleetbaseDriverId: driver.id,
+                reportType: 'LVA Field Report',
+                reportDetails: notes,
+                resultScore: store.resultScore,
+                confidenceScore: store.confidenceScore,
+                likenessScore: store.likenessScore,
+                vibeCheckScore: store.vibeCheckScore,
+                subjectExists: store.subjectExists,
+                s3Keys: s3Keys, // Pass the array of S3 keys we just generated
+            };
+
+            const reportRes = await fetch(VALIDATION_COMPLETE_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (!reportRes.ok) {
+                throw new Error('Failed to save the validation report to BeeSure.');
+            }
 
             // 4. Call Fleetbase to complete the order activity status using the Proof ID from Step 0
             const fleetbasePayload = {
@@ -189,7 +223,7 @@ const ValidationWizardScreen = ({ route }) => {
                     status: 'completed',
                     code: 'completed',
                 },
-                proof: store.fleetbaseProofId, // Retrieve from your temp store
+                proof: store.fleetbaseProofId, // Retrieve from temp store
                 attributes: {
                     validation_notes: notes,
                     validation_s3_keys: s3Keys,
