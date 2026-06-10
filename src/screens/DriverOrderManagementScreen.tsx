@@ -1,20 +1,23 @@
-import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { FlatList, RefreshControl, Platform } from 'react-native';
+import { Text, YStack, XStack, Separator, useTheme } from 'tamagui';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import { endOfYear, format, startOfYear, subDays } from 'date-fns';
-import { useCallback, useEffect, useMemo, useRef } from 'react'; // Added useMemo
-import { FlatList, Platform, RefreshControl } from 'react-native';
-import CalendarStrip from 'react-native-calendar-strip';
-import { Separator, Text, XStack, YStack, useTheme } from 'tamagui';
-import AdhocOrderCard from '../components/AdhocOrderCard';
-import OrderCard from '../components/OrderCard';
-import Spacer from '../components/Spacer';
-import { useAuth } from '../contexts/AuthContext';
-import { useNotification } from '../contexts/NotificationContext';
-import { useOrderManager } from '../contexts/OrderManagerContext';
-import useAppTheme from '../hooks/use-app-theme';
-import useSocketClusterClient from '../hooks/use-socket-cluster-client';
 import { formatDuration, formatMeters } from '../utils/format';
+import { useOrderManager } from '../contexts/OrderManagerContext';
+import { useNotification } from '../contexts/NotificationContext';
+import { useAuth } from '../contexts/AuthContext';
+import InsetShadow from 'react-native-inset-shadow';
+import useSocketClusterClient from '../hooks/use-socket-cluster-client';
+import useAppTheme from '../hooks/use-app-theme';
+import CalendarStrip from 'react-native-calendar-strip';
+import OrderCard from '../components/OrderCard';
+import PastOrderCard from '../components/PastOrderCard';
+import AdhocOrderCard from '../components/AdhocOrderCard';
+import Spacer from '../components/Spacer';
+import useStorage from '../hooks/use-storage';
 
 const isAndroid = Platform.OS === 'android';
 
@@ -68,57 +71,6 @@ const DriverOrderManagementScreen = () => {
     const stops = countStops(activeCurrentOrders);
     const distance = sumDistance(activeCurrentOrders);
     const duration = sumDuration(activeCurrentOrders);
-
-    // --- BEESURE GROUPING LOGIC ---
-    // Get a Set of validation IDs the driver is ALREADY assigned to
-    const activeValidationIds = useMemo(() => {
-        const activeOrders = [...currentOrders, ...allActiveOrders];
-        return new Set(
-            activeOrders
-                .map((o) => {
-                    const meta = o.getAttribute('meta') || {};
-                    return meta.validation_id || meta.validationId || o.getAttribute('meta.validation_id');
-                })
-                .filter(Boolean)
-        );
-    }, [currentOrders, allActiveOrders]);
-    // Group the available nearby orders, hiding duplicates and active validations
-    const groupedNearbyOrders = useMemo(() => {
-        const groups = {};
-
-        nearbyOrders.forEach((order) => {
-            const meta = order.getAttribute('meta') || {};
-
-            const validationId = meta.validation_id || meta.validationId || order.getAttribute('meta.validation_id');
-
-            // // DEBUG: print exactly what we're receiving
-            // if (order.getAttribute('adhoc') === true) {
-            //     console.log(`\n=== DEBUG ORDER ${order.id} ===`);
-            //     console.log(`Raw Meta Object:`, JSON.stringify(meta));
-            //     console.log(`Extracted Validation ID:`, validationId);
-            //     console.log(`===============================\n`);
-            // }
-
-            // Standard Fleetbase order
-            if (!validationId) {
-                groups[order.id] = { displayOrder: order, duplicates: [order] };
-                return;
-            }
-
-            // If driver is already working on this validation, hide it from the board
-            if (activeValidationIds.has(validationId)) {
-                return;
-            }
-
-            // Group identical clones under their validation ID
-            if (!groups[validationId]) {
-                groups[validationId] = { displayOrder: order, duplicates: [] };
-            }
-            groups[validationId].duplicates.push(order);
-        });
-
-        return Object.values(groups);
-    }, [nearbyOrders, activeValidationIds]);
 
     useEffect(() => {
         const handlePushNotification = async (notification, action) => {
@@ -196,67 +148,22 @@ const DriverOrderManagementScreen = () => {
         [setDimissedOrders]
     );
 
-    const handleAdhocAccept = async (displayOrder, duplicates) => {
-        try {
-            let successfullyClaimedOrder = null;
+    const handleAdhocAccept = useCallback(() => {
+        reloadNearbyOrders();
+        reloadCurrentOrders();
+    }, [reloadNearbyOrders, reloadCurrentOrders]);
 
-            // Iterate through the 3 clones one by one
-            for (const clone of duplicates) {
-                console.log(`Checking Clone ${clone.id}...`);
-
-                // Fetch the absolute latest state of this clone using its built-in method
-                const latestCloneState = await clone.reload();
-
-                //CHECK: Is another driver already assigned?
-                if (latestCloneState.getAttribute('driver_assigned') !== null) {
-                    console.log(`Whoops! Clone ${clone.id} was claimed by another driver. Trying next clone...`);
-                    continue;
-                }
-
-                //it's free: attempt to claim it
-                await latestCloneState.update({ driver_assigned: driver.id });
-
-                successfullyClaimedOrder = latestCloneState;
-                console.log(`Successfully claimed Clone ${clone.id}!`);
-                break;
-            }
-
-            // If the loop finished and ALL clones were taken
-            if (!successfullyClaimedOrder) {
-                Alert.alert('Too Slow!', 'Another driver claimed this validation before you could. Better luck next time!');
-                return;
-            }
-
-            // success: Refresh the UI to move the card from "Nearby" to "Current"
-            reloadCurrentOrders();
-        } catch (error) {
-            console.error('Critical error during the Smart Retry Loop:', error);
-            Alert.alert('Error', 'Something went wrong while accepting the order.');
-        }
-    };
-
-    const renderOrder = ({ item }) => {
-        // Unwraps the grouped object (if it's from nearby) or just uses the item directly (if it's from currentOrders)
-        const order = item.displayOrder || item;
-        const duplicates = item.duplicates || [order];
-
+    const renderOrder = ({ item: order }) => {
         const isAdhocOrder = order.getAttribute('adhoc') === true && order.getAttribute('driver_assigned') === null;
-
         if (isAdhocOrder) {
             if (dismissedOrders.includes(order.id)) return;
             return (
                 <YStack px='$2' py='$4'>
                     <AdhocOrderCard
                         order={order}
-                        duplicates={duplicates}
-                        onPress={() =>
-                            navigation.navigate('OrderModal', {
-                                order: order.serialize(),
-                                duplicates: duplicates.map((d) => d.serialize()),
-                            })
-                        }
-                        onDismiss={() => handleAdhocDismissal(order)}
-                        onAccept={() => handleAdhocAccept(order, duplicates)}
+                        onPress={() => navigation.navigate('OrderModal', { order: order.serialize() })}
+                        onDismiss={handleAdhocDismissal}
+                        onAccept={handleAdhocAccept}
                     />
                 </YStack>
             );
@@ -281,13 +188,13 @@ const DriverOrderManagementScreen = () => {
                 </YStack>
                 <YStack>
                     <FlatList
-                        data={[...groupedNearbyOrders, ...currentOrders]}
-                        keyExtractor={(item, index) => {
-                            const orderId = item.displayOrder ? item.displayOrder.id : item.id;
-                            return `${orderId}_${index}`;
-                        }}
-                        renderItem={renderOrder}
-                        refreshControl={<RefreshControl refreshing={isFetchingCurrentOrders} onRefresh={reloadCurrentOrders} tintColor={theme['$blue-500'].val} />}
+                        data={allActiveOrders}
+                        keyExtractor={(order) => order.id.toString()}
+                        renderItem={({ item: order }) => (
+                            <YStack py='$3'>
+                                <PastOrderCard order={order} onPress={() => navigation.navigate('Order', { order: order.serialize() })} />
+                            </YStack>
+                        )}
                         showsVerticalScrollIndicator={false}
                         showsHorizontalScrollIndicator={false}
                         ItemSeparatorComponent={() => <Separator borderBottomWidth={1} borderColor='$borderColorWithShadow' />}
@@ -312,12 +219,6 @@ const DriverOrderManagementScreen = () => {
             </YStack>
         );
     };
-
-    // console.log('\n--- UI RENDER CHECK ---');
-    // console.log('1. Raw Nearby Orders:', nearbyOrders.length);
-    // console.log('2. Grouped Nearby Orders:', groupedNearbyOrders.length);
-    // console.log('3. Current Orders (Assigned):', currentOrders.length);
-    // console.log('4. Total Cards Sent to FlatList:', [...groupedNearbyOrders, ...currentOrders].length);
 
     return (
         <YStack flex={1} bg='$surface'>
@@ -387,11 +288,8 @@ const DriverOrderManagementScreen = () => {
                 </XStack>
             </YStack>
             <FlatList
-                data={[...groupedNearbyOrders, ...currentOrders]}
-                keyExtractor={(item, index) => {
-                    const orderId = item.displayOrder ? item.displayOrder.id : item.id;
-                    return orderId.toString() + '_' + index;
-                }}
+                data={[...nearbyOrders, ...currentOrders]}
+                keyExtractor={(order, index) => order.id.toString() + '_' + index}
                 renderItem={renderOrder}
                 refreshControl={<RefreshControl refreshing={isFetchingCurrentOrders} onRefresh={reloadCurrentOrders} tintColor={theme['$blue-500'].val} />}
                 showsVerticalScrollIndicator={false}

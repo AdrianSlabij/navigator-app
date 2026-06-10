@@ -382,7 +382,7 @@ const OrderScreen = ({ route }) => {
     );
 
     const handleAdhocAccept = useCallback(async () => {
-        Alert.alert('Accept Ad-Hoc order?', 'By accepting this ad-hoc order it will become assigned to you and the order will start immediately.', [
+        Alert.alert('Accept Ad-Hoc order?', 'By accepting this ad-hoc order it will become assigned to you and the order will start immediatley.', [
             {
                 text: 'Cancel',
                 style: 'cancel',
@@ -391,37 +391,19 @@ const OrderScreen = ({ route }) => {
                 text: 'Accept',
                 onPress: async () => {
                     setIsAccepting(true);
-                    let success = false;
 
-                    // Read clones from navigation params, fallback to single order
-                    const ordersToTry = route.params?.duplicates || [params.order];
-
-                    for (let i = 0; i < ordersToTry.length; i++) {
-                        try {
-                            // Instantiate the Fleetbase SDK Order object for this clone
-                            const orderClone = new Order(ordersToTry[i], adapter);
-
-                            const startedOrder = await orderClone.start({ assign: driver.id });
-
-                            setOrder(startedOrder);
-                            success = true;
-                            toast.success('Validation accepted successfully!');
-                            break;
-                        } catch (err) {
-                            console.warn(`Failed to accept clone ${i + 1}, trying next...`, err);
-                        }
+                    try {
+                        const startedOrder = await order.start({ assign: driver.id });
+                        setOrder(startedOrder);
+                    } catch (err) {
+                        console.warn('Error assigning driver to ad-hoc order:', err);
+                    } finally {
+                        setIsAccepting(false);
                     }
-
-                    if (!success) {
-                        Alert.alert('Validation Unavailable', 'All available slots for this validation have already been accepted by other drivers.');
-                        navigation.goBack();
-                    }
-
-                    setIsAccepting(false);
                 },
             },
         ]);
-    }, [order, driver, adapter, route.params?.duplicates, navigation]);
+    }, [order, driver, setIsAccepting]);
 
     const handleAdhocDismissal = useCallback(() => {
         Alert.alert('Dismiss Ad-Hoc order?', 'By dimissing this ad-hoc order it will no longer display as an available order.', [

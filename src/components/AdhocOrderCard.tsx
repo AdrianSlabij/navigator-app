@@ -1,22 +1,26 @@
-import { Place } from '@fleetbase/sdk';
-import { faBan, faBox, faCheck, faLocationDot } from '@fortawesome/free-solid-svg-icons';
+import React, { FC, useEffect, useState, useMemo, useCallback } from 'react';
+import { Pressable, Alert } from 'react-native';
+import { YStack, XStack, Text, Button, Spinner, styled, useTheme } from 'tamagui';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable } from 'react-native';
-import { Button, Spinner, Text, XStack, YStack, useTheme } from 'tamagui';
-import { useAuth } from '../contexts/AuthContext';
+import { faBox, faLocationDot, faBan, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { formatDuration, formatMeters, titleize, formatWhatsAppTimestamp } from '../utils/format';
+import { getDistance } from '../utils/location';
+import { Place } from '@fleetbase/sdk';
+import { format as formatDate } from 'date-fns';
 import { useLocation } from '../contexts/LocationContext';
+import { useAuth } from '../contexts/AuthContext';
 import useAppTheme from '../hooks/use-app-theme';
 import useFleetbase from '../hooks/use-fleetbase';
-import { formatMeters, formatWhatsAppTimestamp } from '../utils/format';
-import { getDistance } from '../utils/location';
-import Badge from './Badge';
+import OrderProgressBar from './OrderProgressBar';
 import LiveOrderRoute from './LiveOrderRoute';
+import OrderWaypointList, { WaypointItem } from './OrderWaypointList';
+import MultipleCustomerAvatars from './MultipleCustomerAvatars';
+import LoadingText from './LoadingText';
 import LoadingOverlay from './LoadingOverlay';
-import { WaypointItem } from './OrderWaypointList';
+import Badge from './Badge';
 
 const INFO_FIELD_VALUE_MIN_HEIGHT = 30;
-export const AdhocOrderCard = ({ order, duplicates = [], onPress, onAccept, onDismiss }) => {
+export const AdhocOrderCard = ({ order, onPress, onAccept, onDismiss }) => {
     const theme = useTheme();
     const { adapter } = useFleetbase();
     const { driver } = useAuth();
@@ -40,7 +44,7 @@ export const AdhocOrderCard = ({ order, duplicates = [], onPress, onAccept, onDi
     }, [location, destination]);
 
     const handleAccept = useCallback(async () => {
-        Alert.alert('Accept Ad-Hoc order?', 'By accepting this ad-hoc order it will become assigned to you and the order will start immediately.', [
+        Alert.alert('Accept Ad-Hoc order?', 'By accepting this ad-hoc order it will become assigned to you and the order will start immediatley.', [
             {
                 text: 'Cancel',
                 style: 'cancel',
@@ -49,42 +53,21 @@ export const AdhocOrderCard = ({ order, duplicates = [], onPress, onAccept, onDi
                 text: 'Accept',
                 onPress: async () => {
                     setIsAccepting(true);
-                    let success = false;
 
-                    // Fallback to the single order if duplicates weren't provided
-                    const ordersToTry = duplicates.length > 0 ? duplicates : [order];
-
-                    for (let i = 0; i < ordersToTry.length; i++) {
-                        try {
-                            const orderClone = ordersToTry[i];
-
-                            // Attempt to claim this specific clone
-                            await orderClone.start({ assign: driver.id });
-
-                            if (typeof onAccept === 'function') {
-                                onAccept(orderClone);
-                            }
-                            success = true;
-                            break; // Exit the loop on success
-                        } catch (err) {
-                            console.warn(`Failed to accept clone ${i + 1}, trying next...`, err);
+                    try {
+                        await order.start({ assign: driver.id });
+                        if (typeof onAccept === 'function') {
+                            onAccept(order);
                         }
+                    } catch (err) {
+                        console.warn('Error assigning driver to ad-hoc order:', err);
+                    } finally {
+                        setIsAccepting(false);
                     }
-
-                    if (!success) {
-                        Alert.alert('Order Unavailable', 'All available slots for this validation have already been accepted by other drivers.');
-
-                        // Clear it from the board
-                        if (typeof onDismiss === 'function') {
-                            onDismiss(order);
-                        }
-                    }
-
-                    setIsAccepting(false);
                 },
             },
         ]);
-    }, [order, duplicates, driver, onAccept, onDismiss]);
+    }, [order, setIsAccepting]);
 
     const handleDismiss = useCallback(() => {
         Alert.alert('Dismiss Ad-Hoc order?', 'By dimissing this ad-hoc order it will no longer display as an available order.', [
