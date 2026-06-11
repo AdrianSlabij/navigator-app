@@ -1,23 +1,21 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { FlatList, RefreshControl, Platform } from 'react-native';
-import { Text, YStack, XStack, Separator, useTheme } from 'tamagui';
-import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { endOfYear, format, startOfYear, subDays } from 'date-fns';
-import { formatDuration, formatMeters } from '../utils/format';
-import { useOrderManager } from '../contexts/OrderManagerContext';
-import { useNotification } from '../contexts/NotificationContext';
-import { useAuth } from '../contexts/AuthContext';
-import InsetShadow from 'react-native-inset-shadow';
-import useSocketClusterClient from '../hooks/use-socket-cluster-client';
-import useAppTheme from '../hooks/use-app-theme';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { FlatList, Platform, RefreshControl } from 'react-native';
 import CalendarStrip from 'react-native-calendar-strip';
+import { Separator, Text, XStack, YStack, useTheme } from 'tamagui';
+import AdhocOrderCard from '../components/AdhocOrderCard';
 import OrderCard from '../components/OrderCard';
 import PastOrderCard from '../components/PastOrderCard';
-import AdhocOrderCard from '../components/AdhocOrderCard';
 import Spacer from '../components/Spacer';
-import useStorage from '../hooks/use-storage';
+import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
+import { useOrderManager } from '../contexts/OrderManagerContext';
+import useAppTheme from '../hooks/use-app-theme';
+import useSocketClusterClient from '../hooks/use-socket-cluster-client';
+import { formatDuration, formatMeters } from '../utils/format';
 
 const isAndroid = Platform.OS === 'android';
 
@@ -38,8 +36,42 @@ const sumDistance = (orders = []) =>
         return total + order.getAttribute('distance');
     }, 0);
 
+// Helper function to filter out duplicate beesure validations, prioritizing accepted orders
+const filterUniqueValidations = (orders) => {
+    const orderMap = new Map();
+
+    orders.forEach((order) => {
+        const validationId = order.getAttribute('meta.validation_id') || order.getAttribute('custom_fields.validation_id');
+
+        // If it's a standard order without a validation ID, use its own ID as the key so it never gets filtered
+        const key = validationId ? `val_${validationId}` : `ord_${order.id}`;
+
+        if (!orderMap.has(key)) {
+            // First time seeing this validation ID, add it to the map
+            orderMap.set(key, order);
+        } else {
+            // A duplicate exists, must prioritize the one the driver actually accepted.
+            const existingOrder = orderMap.get(key);
+
+            // Check if the orders are assigned to a driver
+            const isExistingAssigned = existingOrder.getAttribute('driver_assigned') !== null;
+            const isNewAssigned = order.getAttribute('driver_assigned') !== null;
+
+            // If the new order in the loop is assigned (e.g., 'started'), but the
+            // one we already saved is just unassigned/adhoc, OVERWRITE it.
+            if (!isExistingAssigned && isNewAssigned) {
+                orderMap.set(key, order);
+            }
+        }
+    });
+
+    // Convert the map values back into a flat array for the FlatList
+    return Array.from(orderMap.values());
+};
+
 const REFRESH_NEARBY_ORDERS_MS = 6000 * 5; // 5 mins
 const REFRESH_ORDERS_MS = 6000 * 15; // 15 mins
+
 const DriverOrderManagementScreen = () => {
     const theme = useTheme();
     const navigation = useNavigation();
@@ -71,6 +103,12 @@ const DriverOrderManagementScreen = () => {
     const stops = countStops(activeCurrentOrders);
     const distance = sumDistance(activeCurrentOrders);
     const duration = sumDuration(activeCurrentOrders);
+
+    // Memoized filtered array so we only calculate when orders change
+    const displayOrders = useMemo(() => {
+        const combinedOrders = [...nearbyOrders, ...currentOrders];
+        return filterUniqueValidations(combinedOrders);
+    }, [nearbyOrders, currentOrders]);
 
     useEffect(() => {
         const handlePushNotification = async (notification, action) => {
@@ -288,7 +326,8 @@ const DriverOrderManagementScreen = () => {
                 </XStack>
             </YStack>
             <FlatList
-                data={[...nearbyOrders, ...currentOrders]}
+                // uses the filtered array instead of the raw data
+                data={displayOrders}
                 keyExtractor={(order, index) => order.id.toString() + '_' + index}
                 renderItem={renderOrder}
                 refreshControl={<RefreshControl refreshing={isFetchingCurrentOrders} onRefresh={reloadCurrentOrders} tintColor={theme['$blue-500'].val} />}
