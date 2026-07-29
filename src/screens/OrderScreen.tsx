@@ -90,13 +90,14 @@ const OrderScreen = ({ route }) => {
     const isOrderPing = isDriverAssigned === false && isAdhoc === true && !['completed', 'canceled'].includes(order.getAttribute('status'));
     const isNotStarted = order.isNotStarted && !order.isCanceled && !isOrderPing && order.getAttribute('status') !== 'completed';
     const isNavigatable = (order.isDispatched || order.isInProgress) && !['completed', 'canceled'].includes(order.getAttribute('status')) && !isIncomingAdhoc;
+    const canCancel = !['completed', 'canceled'].includes(order.getAttribute('status')) && !isIncomingAdhoc;
     const isMultipleWaypointOrder = (order.getAttribute('payload.waypoints', []) ?? []).length > 0;
     const customFieldKeys = order.getAttribute('custom_fields', []) ?? [];
-    const showLoadingOverlay = isLoading('activityUpdate');
-    // Alert destination changed state
+    const showLoadingOverlay = isLoading('activityUpdate') || isLoading('cancelOrder');
+
     const [showDestAlert, setShowDestAlert] = useState(false);
-    const [prevDest, setPrevDest] = useState<any>(null);
-    const [currDest, setCurrDest] = useState<any>(null);
+    const [prevDest, setPrevDest] = useState(null);
+    const [currDest, setCurrDest] = useState(null);
 
     const destination = useMemo(() => {
         const pickup = order.getAttribute('payload.pickup');
@@ -381,6 +382,50 @@ const OrderScreen = ({ route }) => {
         [order]
     );
 
+    const handleCancelOrder = useCallback(() => {
+        Alert.alert('Cancel Order', 'Are you sure you want to cancel your assignment to this order?', [
+            { text: 'No', style: 'cancel' },
+            {
+                text: 'Yes',
+                style: 'destructive',
+                onPress: async () => {
+                    isUpdatingActivity.current = true;
+                    setLoadingOverlayMessage('Canceling Order...');
+
+                    try {
+                        let updatedOrder;
+
+                        if (typeof order.unassign === 'function') {
+                            updatedOrder = await runWithLoading(order.unassign(), 'cancelOrder');
+                        } else {
+                            updatedOrder = await runWithLoading(
+                                order.update({
+                                    driver_assigned_uuid: null,
+                                    driver_id: null,
+                                    driver_type: null,
+                                    driver: null,
+                                    status: 'dispatched',
+                                }),
+                                'cancelOrder'
+                            );
+                        }
+
+                        setDimissedOrders((prev) => [...new Set([...prev, order.id])]);
+
+                        toast.success('Order canceled and returned to the dispatch pool.');
+                        navigation.goBack();
+                    } catch (err) {
+                        console.warn('Error canceling order:', err);
+                        toast.error(err?.message || 'Failed to cancel order.');
+                    } finally {
+                        isUpdatingActivity.current = false;
+                        setLoadingOverlayMessage(null);
+                    }
+                },
+            },
+        ]);
+    }, [order, runWithLoading, navigation, setDimissedOrders]);
+
     const handleAdhocAccept = useCallback(async () => {
         Alert.alert('Accept Ad-Hoc order?', 'By accepting this ad-hoc order it will become assigned to you and the order will start immediatley.', [
             {
@@ -556,7 +601,7 @@ const OrderScreen = ({ route }) => {
                             </XStack>
                         </YStack>
                     )}
-                    <XStack space='$2' ml={-5}>
+                    <XStack space='$2' ml={-5} flexWrap='wrap' rowGap='$2'>
                         {isIncomingAdhoc && (
                             <XStack flex={1} space='$2' ml={5}>
                                 <Button onPress={handleAdhocAccept} flex={1} bg='$success' borderWidth={1} borderColor='$successBorder' disabled={isAccepting}>
@@ -591,6 +636,12 @@ const OrderScreen = ({ route }) => {
                             <Button onPress={startNavigation} bg='$info' borderWidth={1} borderColor='$infoBorder'>
                                 <Button.Icon>{isLoading('startNavigation') ? <Spinner color='$infoText' /> : <FontAwesomeIcon icon={faPaperPlane} color={theme.infoText.val} />}</Button.Icon>
                                 <Button.Text color='$infoText'>Start Navigation</Button.Text>
+                            </Button>
+                        )}
+                        {canCancel && (
+                            <Button onPress={handleCancelOrder} bg='$error' borderWidth={1} borderColor='$errorBorder'>
+                                <Button.Icon>{isLoading('cancelOrder') ? <Spinner color='$errorText' /> : <FontAwesomeIcon icon={faBan} color={theme.errorText.val} />}</Button.Icon>
+                                <Button.Text color='$errorText'>Cancel</Button.Text>
                             </Button>
                         )}
                     </XStack>

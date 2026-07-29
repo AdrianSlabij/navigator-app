@@ -37,6 +37,7 @@ const sumDistance = (orders = []) =>
     }, 0);
 
 // Helper function to filter out duplicate beesure validations, prioritizing accepted orders
+// TODO: also need to filter out duplicate beesure validations that were dismissed (ex. dismissing one of the duplicates should dismiss all of them)
 const filterUniqueValidations = (orders) => {
     const orderMap = new Map();
 
@@ -106,9 +107,13 @@ const DriverOrderManagementScreen = () => {
 
     // Memoized filtered array so we only calculate when orders change
     const displayOrders = useMemo(() => {
-        const combinedOrders = [...nearbyOrders, ...currentOrders];
+        const visibleNearby = nearbyOrders.filter((order) => !dismissedOrders.includes(order.id));
+        const visibleCurrent = currentOrders.filter((order) => !dismissedOrders.includes(order.id));
+
+        const combinedOrders = [...visibleNearby, ...visibleCurrent];
+
         return filterUniqueValidations(combinedOrders);
-    }, [nearbyOrders, currentOrders]);
+    }, [nearbyOrders, currentOrders, dismissedOrders]);
 
     useEffect(() => {
         const handlePushNotification = async (notification, action) => {
@@ -194,7 +199,6 @@ const DriverOrderManagementScreen = () => {
     const renderOrder = ({ item: order }) => {
         const isAdhocOrder = order.getAttribute('adhoc') === true && order.getAttribute('driver_assigned') === null;
         if (isAdhocOrder) {
-            if (dismissedOrders.includes(order.id)) return;
             return (
                 <YStack px='$2' py='$4'>
                     <AdhocOrderCard
