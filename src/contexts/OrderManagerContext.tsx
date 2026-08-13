@@ -1,5 +1,4 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useTheme } from 'tamagui';
 import { format } from 'date-fns';
 import { Order } from '@fleetbase/sdk';
 import { useAuth } from './AuthContext';
@@ -18,29 +17,30 @@ function restoreCollection(collection, adapter) {
 const OrderManagerContext = createContext(null);
 
 export const OrderManagerProvider: React.FC = ({ children }) => {
-    const theme = useTheme();
     const { driver } = useAuth();
     const { fleetbase, adapter } = useFleetbase();
     const today = format(new Date(), 'yyyy-MM-dd HH:mm:ssXXX');
-
-    // Current date is stored in provider state with default value of today.
-    const [currentDate, setCurrentDate] = useState(today);
 
     // Local storage for caching orders
     const [allRecentOrders, setAllRecentOrders] = useStorage(`${driver?.id}_all_recent_orders`, []);
     const [allActiveOrders, setAllActiveOrders] = useStorage(`${driver?.id}_all_active_orders`, []);
     // These are adhoc orders available
     const [nearbyOrders, setNearbyOrders] = useStorage(`${driver?.id}_nearby_orders`, []);
-    // Use currentDate state to build the storage key for current orders.
-    const [currentOrders, setCurrentOrders] = useStorage(`${driver?.id}_${currentDate.replaceAll('-', '')}_orders`, []);
+    // All orders currently assigned to the driver, unfiltered by date.
+    const [currentOrders, setCurrentOrders] = useStorage(`${driver?.id}_current_orders`, []);
     const [ordersToday, setOrdersToday] = useStorage(`${driver?.id}_${today.replaceAll('-', '')}_orders`, []);
     // Dismissed adhoc orders
     const [dismissedOrders, setDimissedOrders] = useState([]);
+    // Paginated history of completed orders for the Past Orders screen
+    const [pastOrders, setPastOrders] = useStorage(`${driver?.id}_past_orders`, []);
+    const [pastOrdersPage, setPastOrdersPage] = useState(1);
+    const [hasMorePastOrders, setHasMorePastOrders] = useState(true);
 
     const [isFetchingActiveOrders, setIsFetchingActiveOrders] = useState(false);
     const [isFetchingRecentOrders, setIsFetchingRecentOrders] = useState(false);
     const [isFetchingNearbyOrders, setIsFetchingNearbyOrders] = useState(false);
     const [isFetchingCurrentOrders, setIsFetchingCurrentOrders] = useState(false);
+    const [isFetchingPastOrders, setIsFetchingPastOrders] = useState(false);
 
     // Define statuses to exclude from active orders
     const nonActiveOrderStatuses = useMemo(() => new Set(['completed', 'created', 'canceled', 'order_canceled']), []);
@@ -49,28 +49,6 @@ export const OrderManagerProvider: React.FC = ({ children }) => {
     const recentActiveOrders = useMemo(() => {
         return allRecentOrders.filter((order) => !nonActiveOrderStatuses.has(order.status));
     }, [allRecentOrders, nonActiveOrderStatuses]);
-
-    // Create a marked dates array for calendar strip from active orders
-    const activeOrderMarkedDates = useMemo(() => {
-        // Group orders by formatted date string (e.g., "2025-03-06")
-        const ordersGroupedByDate = allActiveOrders.reduce((acc, order) => {
-            const dateKey = format(new Date(order.created_at), 'yyyy-MM-dd');
-            if (!acc[dateKey]) {
-                acc[dateKey] = [];
-            }
-            acc[dateKey].push(order);
-            return acc;
-        }, {});
-
-        // Map each group into the required format
-        return Object.entries(ordersGroupedByDate).map(([date, orders]) => ({
-            date: new Date(date),
-            dots: orders.map(() => ({
-                color: theme['$red-600'].val,
-                // You can optionally add selectedColor here if needed
-            })),
-        }));
-    }, [allActiveOrders, theme]);
 
     // Generic function to query orders from Fleetbase API
     const queryOrders = useCallback(
@@ -103,6 +81,7 @@ export const OrderManagerProvider: React.FC = ({ children }) => {
     const recentOrdersPromiseRef = useRef<Promise<any> | null>(null);
     const nearbyOrdersPromiseRef = useRef<Promise<any> | null>(null);
     const currentOrdersPromiseRef = useRef<Promise<any> | null>(null);
+    const pastOrdersPromiseRef = useRef<Promise<any> | null>(null);
 
     // Fetch active orders
     const fetchActiveOrders = useCallback(
@@ -167,14 +146,13 @@ export const OrderManagerProvider: React.FC = ({ children }) => {
         [fleetbase, driver, queryOrders, setNearbyOrders]
     );
 
-    // Fetch current orders for the currentDate.
+    // Fetch all orders currently assigned to the driver, unfiltered by date.
     const fetchCurrentOrders = useCallback(
         async (params = {}, options = {}) => {
-            if (!driver || !fleetbase || !currentDate || hasLoadedCurrentRef.current || currentOrdersPromiseRef.current) return;
+            if (!driver || !fleetbase || hasLoadedCurrentRef.current || currentOrdersPromiseRef.current) return;
             const setLoadingFlag = options.setLoadingFlag ?? true;
             try {
-                // We assume the API accepts a `date` parameter.
-                currentOrdersPromiseRef.current = queryOrders({ driver_assigned: driver.id, on: currentDate, limit: -1, ...params }, setLoadingFlag ? setIsFetchingCurrentOrders : null);
+                currentOrdersPromiseRef.current = queryOrders({ driver_assigned: driver.id, limit: -1, ...params }, setLoadingFlag ? setIsFetchingCurrentOrders : null);
                 const fetchedOrders = await currentOrdersPromiseRef.current;
                 setCurrentOrders(serializeCollection(fetchedOrders));
                 hasLoadedCurrentRef.current = true;
@@ -185,7 +163,49 @@ export const OrderManagerProvider: React.FC = ({ children }) => {
                 currentOrdersPromiseRef.current = null;
             }
         },
-        [fleetbase, driver, currentDate, queryOrders, setCurrentOrders]
+        [fleetbase, driver, queryOrders, setCurrentOrders]
+    );
+
+    // Fetch a page of completed order history for the Past Orders screen.
+    const fetchPastOrders = useCallback(
+        async (params = {}, options = {}) => {
+            if (!driver || !fleetbase || pastOrdersPromiseRef.current) return;
+            const page = options.page ?? 1;
+            const setLoadingFlag = options.setLoadingFlag ?? true;
+            try {
+                pastOrdersPromiseRef.current = queryOrders({ driver_assigned: driver.id, status: 'completed', page, limit: 20, ...params }, setLoadingFlag ? setIsFetchingPastOrders : null);
+                const fetchedOrders = await pastOrdersPromiseRef.current;
+                const serialized = serializeCollection(fetchedOrders);
+                setPastOrders(page === 1 ? serialized : [...pastOrders, ...serialized]);
+                setHasMorePastOrders(serialized.length > 0);
+                setPastOrdersPage(page);
+            } catch (error) {
+                console.warn('Unable to load past orders for driver:', error);
+                if (page === 1) setPastOrders([]);
+            } finally {
+                pastOrdersPromiseRef.current = null;
+            }
+        },
+        [fleetbase, driver, queryOrders, pastOrders, setPastOrders]
+    );
+
+    // Reset paging and refetch the first page of past orders.
+    const reloadPastOrders = useCallback(
+        (params = {}, options = {}) => {
+            setHasMorePastOrders(true);
+            pastOrdersPromiseRef.current = null;
+            fetchPastOrders(params, { ...options, page: 1 });
+        },
+        [fetchPastOrders]
+    );
+
+    // Fetch the next page of past orders, appending to the existing list.
+    const loadMorePastOrders = useCallback(
+        (params = {}) => {
+            if (!hasMorePastOrders || isFetchingPastOrders || pastOrdersPromiseRef.current) return;
+            fetchPastOrders(params, { page: pastOrdersPage + 1 });
+        },
+        [fetchPastOrders, hasMorePastOrders, isFetchingPastOrders, pastOrdersPage]
     );
 
     // Allows an update of a sigle order in the storage
@@ -221,12 +241,12 @@ export const OrderManagerProvider: React.FC = ({ children }) => {
         }
     }, [driver, fleetbase, fetchNearbyOrders]);
 
-    // Whenever the currentDate state changes, reset and fetch current orders.
+    // Fetch current orders once driver and fleetbase are available.
     useEffect(() => {
-        if (driver && fleetbase && currentDate) {
+        if (driver && fleetbase) {
             fetchCurrentOrders();
         }
-    }, [driver, fleetbase, currentDate, fetchCurrentOrders]);
+    }, [driver, fleetbase, fetchCurrentOrders]);
 
     // Manual reload functions.
     const reloadOrders = useCallback(
@@ -283,14 +303,13 @@ export const OrderManagerProvider: React.FC = ({ children }) => {
     const value = useMemo(
         () => ({
             queryOrders,
-            currentDate,
-            setCurrentDate,
             allRecentOrders: restoreCollection(allRecentOrders, adapter),
             recentActiveOrders: restoreCollection(recentActiveOrders, adapter),
             allActiveOrders: restoreCollection(allActiveOrders, adapter),
             ordersToday: restoreCollection(ordersToday, adapter),
             currentOrders: restoreCollection(currentOrders, adapter),
             nearbyOrders: restoreCollection(nearbyOrders, adapter),
+            pastOrders: restoreCollection(pastOrders, adapter),
             reloadOrders,
             reloadRecentOrders,
             reloadActiveOrders,
@@ -298,30 +317,38 @@ export const OrderManagerProvider: React.FC = ({ children }) => {
             isFetchingActiveOrders,
             isFetchingRecentOrders,
             isFetchingCurrentOrders,
-            activeOrderMarkedDates,
+            isFetchingPastOrders,
+            hasMorePastOrders,
             updateStorageOrder,
             fetchNearbyOrders,
             reloadNearbyOrders,
+            fetchPastOrders,
+            reloadPastOrders,
+            loadMorePastOrders,
             dismissedOrders,
             setDimissedOrders,
         }),
         [
             queryOrders,
-            currentDate,
             allRecentOrders,
             recentActiveOrders,
             allActiveOrders,
             ordersToday,
             currentOrders,
             nearbyOrders,
+            pastOrders,
             adapter,
             reloadOrders,
             isFetchingActiveOrders,
             isFetchingRecentOrders,
             isFetchingCurrentOrders,
-            activeOrderMarkedDates,
+            isFetchingPastOrders,
+            hasMorePastOrders,
             fetchNearbyOrders,
             reloadNearbyOrders,
+            fetchPastOrders,
+            reloadPastOrders,
+            loadMorePastOrders,
             dismissedOrders,
             setDimissedOrders,
         ]
