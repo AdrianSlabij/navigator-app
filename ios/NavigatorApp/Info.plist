@@ -2,10 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-<key>NSCameraUsageDescription</key>
-<string>We need access to your camera to take validation photos.</string>
-<key>NSPhotoLibraryUsageDescription</key>
-<string>We need access to your photo library to select validation photos.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>We need access to your camera to take validation photos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need access to your photo library to select validation photos.</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.transistorsoft.fetch</string>
@@ -130,24 +130,20 @@
 			</dict>
 		</dict>
 	</dict>
-	<key>NSCameraUsageDescription</key>
-	<string>This app may need to use your camera for your profile picture</string>
 	<key>NSContactsUsageDescription</key>
 	<string>This app may need to access your contacts for sharing</string>
 	<key>NSLocalUsageDescription</key>
 	<string>This app requires access to send you notifications about order status updates and other important information.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Navigator uses your location even when the app is in the background to keep your navigation and task data up-to-date.</string>
+	<string>beeSure LVA uses your location even when the app is in the background to keep your navigation and task data up-to-date.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Navigator requires access to your location at all times to track your position in the background for accurate navigation and task updates.</string>
+	<string>beeSure LVA requires access to your location at all times to track your position in the background for accurate navigation and task updates.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Navigator needs your location to provide navigation and task management features while you are using the app.</string>
+	<string>beeSure LVA needs your location to provide navigation and task management features while you are using the app.</string>
 	<key>NSMotionUsageDescription</key>
-	<string>Navigator uses motion data to enhance navigation and track physical activity for improved task management.</string>
+	<string>beeSure LVA uses motion data to enhance navigation and track physical activity for improved task management.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>This app allows you to download photos to your photo library</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app allows you to upload photos from your photo library</string>
 	<key>NSUserAuthenticationUsageDescription</key>
 	<string>Sign in with Apple is used to authenticate your account.</string>
 	<key>UIBackgroundModes</key>

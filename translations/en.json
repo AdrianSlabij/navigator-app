@@ -1,7 +1,7 @@
 {
     "common": {
         "fleetbase": "Fleetbase",
-        "navigator": "Navigator",
+        "navigator": "beeSure LVA",
         "apiKey": "API Key",
         "cancel": "Cancel",
         "new": "New",
@@ -45,6 +45,8 @@
         "theme": "Theme",
         "deleteAccount": "Delete Account",
         "termsOfService": "Terms of Service",
+        "onboardingTraining": "Onboarding Training",
+        "pastOrders": "Past Orders",
         "privacyPolicy": "Privacy Policy",
         "tracking": "Tracking",
         "account": "Account",
