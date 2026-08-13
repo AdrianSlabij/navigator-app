@@ -157,7 +157,7 @@ export function formatCurrency(amount = 0, currency = 'USD', currencyDisplay = '
 
 export function formatMeters(meters) {
     if (meters < 1000) {
-        return `${meters} meters`;
+        return `${Math.round(meters)} meters`;
     } else {
         const km = meters / 1000;
         // Round to one decimal place
