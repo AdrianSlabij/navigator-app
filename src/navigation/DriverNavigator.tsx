@@ -47,6 +47,9 @@ import FuelReportScreen from '../screens/FuelReportScreen';
 import IssueScreen from '../screens/IssueScreen';
 import OrderScreen from '../screens/OrderScreen';
 import ProofOfDeliveryScreen from '../screens/ProofOfDeliveryScreen';
+import TrainingModuleScreen from '../screens/TrainingModuleScreen';
+import TrainingQuizScreen from '../screens/TrainingQuizScreen';
+import PastOrdersScreen from '../screens/PastOrdersScreen';
 import ValidationWizardScreen from '../screens/ValidationWizardScreen';
 import { config, get, getTheme, navigatorConfig, toArray } from '../utils';
 import { configCase } from '../utils/format';
@@ -503,6 +506,24 @@ const DriverAccountTab = createNativeStackNavigator({
                 };
             },
         },
+        TrainingModule: {
+            screen: TrainingModuleScreen,
+            options: {
+                headerShown: false,
+            },
+        },
+        TrainingQuiz: {
+            screen: TrainingQuizScreen,
+            options: {
+                headerShown: false,
+            },
+        },
+        PastOrders: {
+            screen: PastOrdersScreen,
+            options: {
+                headerShown: false,
+            },
+        },
     },
 });
 
@@ -519,9 +540,9 @@ const DriverNavigator = createBottomTabNavigator({
             headerLeft: (props) => (
                 <View pl='$3'>
                     <XStack alignItems='center'>
-                        <Image source={require('../../assets/navigator-icon-transparent.png')} style={{ width: 18, height: 18, marginRight: 5 }} />
+                        <Image source={require('../../assets/bee-icon.png')} style={{ width: 18, height: 18, marginRight: 5 }} resizeMode='contain' />
                         <Text color='$textPrimary' fontSize={20} fontWeight='bold'>
-                            Navigator
+                            beeSure LVA
                         </Text>
                     </XStack>
                     <Text color='$textSecondary' fontSize={8} ml={25}>

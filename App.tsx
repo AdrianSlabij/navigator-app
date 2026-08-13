@@ -6,6 +6,7 @@ import { PortalProvider, PortalHost } from '@gorhom/portal';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { AuthProvider } from './src/contexts/AuthContext';
+import { TrainingProvider } from './src/contexts/TrainingContext';
 import { SocketClusterProvider } from './src/contexts/SocketClusterContext';
 import { OrderManagerProvider } from './src/contexts/OrderManagerContext';
 import { LanguageProvider } from './src/contexts/LanguageContext';
@@ -31,21 +32,23 @@ function AppContent(): React.JSX.Element {
                                 <NotificationProvider>
                                     <LanguageProvider>
                                         <AuthProvider>
-                                            <SocketClusterProvider>
-                                                <LocationProvider>
-                                                    <TempStoreProvider>
-                                                        <ChatProvider>
-                                                            <OrderManagerProvider>
-                                                                <AppNavigator />
-                                                                <Toasts extraInsets={{ bottom: 80 }} />
-                                                                <PortalHost name='MainPortal' />
-                                                                <PortalHost name='BottomSheetPanelPortal' />
-                                                                <PortalHost name='LocationPickerPortal' />
-                                                            </OrderManagerProvider>
-                                                        </ChatProvider>
-                                                    </TempStoreProvider>
-                                                </LocationProvider>
-                                            </SocketClusterProvider>
+                                            <TrainingProvider>
+                                                <SocketClusterProvider>
+                                                    <LocationProvider>
+                                                        <TempStoreProvider>
+                                                            <ChatProvider>
+                                                                <OrderManagerProvider>
+                                                                    <AppNavigator />
+                                                                    <Toasts extraInsets={{ bottom: 80 }} />
+                                                                    <PortalHost name='MainPortal' />
+                                                                    <PortalHost name='BottomSheetPanelPortal' />
+                                                                    <PortalHost name='LocationPickerPortal' />
+                                                                </OrderManagerProvider>
+                                                            </ChatProvider>
+                                                        </TempStoreProvider>
+                                                    </LocationProvider>
+                                                </SocketClusterProvider>
+                                            </TrainingProvider>
                                         </AuthProvider>
                                     </LanguageProvider>
                                 </NotificationProvider>

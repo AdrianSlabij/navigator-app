@@ -9,6 +9,7 @@ import { setI18nConfig } from '../utils/localize';
 import { config, toArray, isArray, later } from '../utils';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useTraining } from '../contexts/TrainingContext';
 import useFleetbase from '../hooks/use-fleetbase';
 import BootSplash from 'react-native-bootsplash';
 import SetupWarningScreen from './SetupWarningScreen';
@@ -20,6 +21,7 @@ const BootScreen = ({ route }) => {
     const navigation = useNavigation();
     const { hasFleetbaseConfig } = useFleetbase();
     const { isAuthenticated } = useAuth();
+    const { hasPassedTraining } = useTraining();
     const { t } = useLanguage();
     const [error, setError] = useState<Error | null>(null);
     const backgroundColor = toArray(config('BOOTSCREEN_BACKGROUND_COLOR', '$background'));
@@ -54,8 +56,10 @@ const BootScreen = ({ route }) => {
                     later(() => {
                         try {
                             // Any initialization processes will run here
-                            if (isAuthenticated) {
+                            if (isAuthenticated && hasPassedTraining) {
                                 navigation.navigate('DriverNavigator');
+                            } else if (isAuthenticated) {
+                                navigation.navigate('TrainingGate', { screen: 'TrainingModule' });
                             } else {
                                 navigation.navigate('Login');
                             }
@@ -71,7 +75,7 @@ const BootScreen = ({ route }) => {
             };
 
             checkLocationPermission();
-        }, [navigation, isAuthenticated])
+        }, [navigation, isAuthenticated, hasPassedTraining])
     );
 
     if (error) {
@@ -94,7 +98,7 @@ const BootScreen = ({ route }) => {
                 />
             )}
             <YStack alignItems='center' justifyContent='center'>
-                <Image source={require('../../assets/splash-screen.png')} width={100} height={100} borderRadius='$4' mb='$1' />
+                <Image source={require('../../assets/bee-icon.png')} width={100} height={100} resizeMode='contain' mb='$1' />
                 <XStack mt='$2' alignItems='center' justifyContent='center' space='$3'>
                     <Spinner size='small' color='$textPrimary' />
                 </XStack>

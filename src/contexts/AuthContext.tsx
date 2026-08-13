@@ -254,6 +254,7 @@ export const AuthProvider = ({ children }) => {
         storage.removeItem('_driver_token');
         storage.removeItem('organizations');
         storage.removeItem('driver');
+        storage.removeItem('training_passed');
 
         // If logged in with facebook
         FacebookLoginManager.logOut();

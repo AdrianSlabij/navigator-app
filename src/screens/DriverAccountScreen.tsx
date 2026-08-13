@@ -265,6 +265,16 @@ const DriverAccountScreen = () => {
             rightComponent: null,
             onPress: handleOpenTermsOfService,
         },
+        {
+            title: t('AccountScreen.onboardingTraining'),
+            rightComponent: null,
+            onPress: () => navigation.navigate('TrainingModule', { reviewMode: true }),
+        },
+        {
+            title: t('AccountScreen.pastOrders'),
+            rightComponent: null,
+            onPress: () => navigation.navigate('PastOrders'),
+        },
     ];
 
     // Data Protection menu items
