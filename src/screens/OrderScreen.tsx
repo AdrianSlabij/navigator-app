@@ -4,7 +4,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { PortalHost } from '@gorhom/portal';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { format as formatDate } from 'date-fns';
-import { titleize } from 'inflected';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, RefreshControl, ScrollView } from 'react-native';
 import LaunchNavigator from 'react-native-launch-navigator';
@@ -16,12 +15,8 @@ import DestinationChangedAlert from '../components/DestinationChangedAlert';
 import LiveOrderRoute from '../components/LiveOrderRoute';
 import LoadingOverlay from '../components/LoadingOverlay';
 import OrderActivitySelect from '../components/OrderActivitySelect';
-import OrderCommentThread from '../components/OrderCommentThread';
 import OrderCustomerCard from '../components/OrderCustomerCard';
-import OrderDocumentFiles from '../components/OrderDocumentFiles';
-import OrderPayloadEntities from '../components/OrderPayloadEntities';
 import OrderProgressBar from '../components/OrderProgressBar';
-import OrderProofOfDelivery from '../components/OrderProofOfDelivery';
 import OrderWaypointList from '../components/OrderWaypointList';
 import Spacer from '../components/Spacer';
 import { useAuth } from '../contexts/AuthContext';
@@ -661,17 +656,7 @@ const OrderScreen = ({ route }) => {
                 <YStack py='$4'>
                     <SectionInfoLine title='ID' value={order.id} />
                     <Separator />
-                    <SectionInfoLine title='Internal ID' value={order.getAttribute('internal_id')} />
-                    <Separator />
                     <SectionInfoLine title='Tracking Number' value={order.getAttribute('tracking_number.tracking_number')} />
-                    <Separator />
-                    <SectionInfoLine title='Proof of Delivery' value={order.getAttribute('pod_required') ? titleize(order.getAttribute('pod_method')) : 'N/A'} />
-                    <Separator />
-                    <SectionInfoLine title='Type' value={titleize(order.getAttribute('type'))} />
-                    <Separator />
-                    <SectionInfoLine title='Date Created' value={formatDate(new Date(order.getAttribute('created_at')), 'PP HH:mm')} />
-                    <Separator />
-                    <SectionInfoLine title='Date Scheduled' value={order.getAttribute('scheduled_at') ? formatDate(new Date(order.getAttribute('scheduled_at')), 'PP HH:mm') : '-'} />
                     <Separator />
                     <SectionInfoLine title='Date Dispatched' value={order.getAttribute('dispatched_at') ? formatDate(new Date(order.getAttribute('dispatched_at')), 'PP HH:mm') : '-'} />
                     {customFieldKeys.map((key, index) => (
@@ -709,18 +694,6 @@ const OrderScreen = ({ route }) => {
                         <SectionInfoLine title='ECT' value={trackerData.estimated_completion_time_formatted} />
                     </YStack>
                 </YStack>
-                <SectionHeader title='Order Notes' />
-                <YStack px='$3' py='$4'>
-                    <Text color='$textPrimary'>{order.getAttribute('notes', 'N/A') ?? 'N/A'}</Text>
-                </YStack>
-                <SectionHeader title='Order Proof' />
-                <YStack>
-                    <OrderProofOfDelivery order={order} />
-                </YStack>
-                <SectionHeader title='Order Payload' />
-                <YStack>
-                    <OrderPayloadEntities order={order} onPress={({ entity, waypoint }) => navigation.navigate('Entity', { entity, waypoint })} />
-                </YStack>
                 {order.isAttributeFilled('customer') && (
                     <>
                         <SectionHeader title='Customer' />
@@ -729,14 +702,6 @@ const OrderScreen = ({ route }) => {
                         </YStack>
                     </>
                 )}
-                <SectionHeader title='Order Documents & Files' />
-                <YStack>
-                    <OrderDocumentFiles order={order} />
-                </YStack>
-                <SectionHeader title='Order Comments' />
-                <YStack px='$2' py='$4'>
-                    <OrderCommentThread order={order} />
-                </YStack>
                 <Spacer height={200} />
             </ScrollView>
             {isOldAndroid ? (
