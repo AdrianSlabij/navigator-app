@@ -1,5 +1,5 @@
 import React, { FC, useCallback, useEffect, useState, useMemo } from 'react';
-import { Pressable } from 'react-native';
+import { Linking, Pressable } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { YStack, XStack, Text, styled, useTheme } from 'tamagui';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -42,6 +42,12 @@ export const PastOrderCard = ({ order, onPress }) => {
             onPress?.();
         });
     }, [onPress, isNavigating]);
+
+    const handleCall = useCallback((phone) => {
+        if (phone) {
+            Linking.openURL(`tel:${phone}`);
+        }
+    }, []);
 
     const destination = useMemo(() => {
         const pickup = order.getAttribute('payload.pickup');
@@ -109,6 +115,7 @@ export const PastOrderCard = ({ order, onPress }) => {
                             waypoint={destination.serialize()}
                             title='Current Destination'
                             titleStyle={{ fontWeight: 'bold', fontSize: 14, textTransform: 'uppercase' }}
+                            onCall={handleCall}
                         />
                     </YStack>
                 </YStack>

@@ -1,5 +1,5 @@
 import React, { FC, useEffect, useState, useMemo, useCallback } from 'react';
-import { Pressable, Alert } from 'react-native';
+import { Linking, Pressable, Alert } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { YStack, XStack, Text, Button, Spinner, styled, useTheme } from 'tamagui';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -47,6 +47,12 @@ export const AdhocOrderCard = ({ order, onPress, onAccept, onDismiss }) => {
             onPress?.();
         });
     }, [onPress, isNavigating]);
+
+    const handleCall = useCallback((phone) => {
+        if (phone) {
+            Linking.openURL(`tel:${phone}`);
+        }
+    }, []);
 
     const destination = useMemo(() => {
         const pickup = order.getAttribute('payload.pickup');
@@ -162,6 +168,7 @@ export const AdhocOrderCard = ({ order, onPress, onAccept, onDismiss }) => {
                             waypoint={destination.serialize()}
                             title='Pickup Destination'
                             titleStyle={{ fontWeight: 'bold', fontSize: 14, textTransform: 'uppercase' }}
+                            onCall={handleCall}
                         />
                     </YStack>
                     <XStack px='$3' pb='$3' gap='$2'>

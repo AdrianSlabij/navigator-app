@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
-import { Animated, SafeAreaView, Pressable, FlatList, LayoutAnimation, UIManager, Platform } from 'react-native';
+import React, { useEffect, useState, useRef, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { Animated, Linking, SafeAreaView, Pressable, FlatList, LayoutAnimation, UIManager, Platform } from 'react-native';
 import { Spinner, Button, Text, YStack, XStack, Separator, useTheme } from 'tamagui';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faLightbulb, faLocationDot } from '@fortawesome/free-solid-svg-icons';
@@ -21,6 +21,12 @@ const OrderActivitySelect = forwardRef(({ onChange, waypoint, activities = [], s
     const { isDarkMode } = useAppTheme();
     const bottomSheetRef = useRef(null);
     const snapPoints = useMemo(() => [snapTo], [snapTo]);
+
+    const handleCall = useCallback((phone) => {
+        if (phone) {
+            Linking.openURL(`tel:${phone}`);
+        }
+    }, []);
 
     // Expose methods to the parent via ref.
     useImperativeHandle(
@@ -128,6 +134,7 @@ const OrderActivitySelect = forwardRef(({ onChange, waypoint, activities = [], s
                                         icon={faLocationDot}
                                         iconColor={theme['$infoText'].val}
                                         textStyle={{ fontSize: 14, fontWeight: 'bold', color: theme['$infoText'].val }}
+                                        onCall={handleCall}
                                     />
                                 </YStack>
                             )}
