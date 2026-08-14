@@ -31,21 +31,34 @@ const BouncingDot: React.FC<BouncingDotProps> = ({ progress, phase }) => {
 
 const LoadingText: React.FC<LoadingTextProps> = ({ text, ...props }) => {
     const progress = useRef(new Animated.Value(0)).current;
+    const isLoading = text === null || text === undefined;
 
+    // Only animate while actually in the loading state
     useEffect(() => {
+        if (!isLoading) return;
+
+        let isActive = true;
         const animate = () => {
+            if (!isActive) return;
             progress.setValue(0);
             Animated.timing(progress, {
                 toValue: 1,
                 duration: 1000, // duration for one full cycle (in ms)
                 easing: Easing.linear,
                 useNativeDriver: true,
-            }).start(() => animate());
+            }).start(() => {
+                if (isActive) animate();
+            });
         };
         animate();
-    }, [progress]);
 
-    if (text !== null && text !== undefined) {
+        return () => {
+            isActive = false;
+            progress.stopAnimation();
+        };
+    }, [isLoading, progress]);
+
+    if (!isLoading) {
         return <Text {...props}>{text}</Text>;
     }
 
