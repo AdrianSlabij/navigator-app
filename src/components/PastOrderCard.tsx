@@ -1,5 +1,6 @@
-import React, { FC, useEffect, useState, useMemo } from 'react';
+import React, { FC, useCallback, useEffect, useState, useMemo } from 'react';
 import { Pressable } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { YStack, XStack, Text, styled, useTheme } from 'tamagui';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBox, faLocationDot } from '@fortawesome/free-solid-svg-icons';
@@ -14,6 +15,7 @@ import LiveOrderRoute from './LiveOrderRoute';
 import OrderWaypointList, { WaypointItem } from './OrderWaypointList';
 import MultipleCustomerAvatars from './MultipleCustomerAvatars';
 import LoadingText from './LoadingText';
+import LoadingOverlay from './LoadingOverlay';
 import Badge from './Badge';
 
 const INFO_FIELD_VALUE_MIN_HEIGHT = 30;
@@ -21,6 +23,25 @@ export const PastOrderCard = ({ order, onPress }) => {
     const theme = useTheme();
     const { isDarkMode } = useAppTheme();
     const { trackerData } = useOrderResource(order, { loadEta: false });
+    const [isNavigating, setIsNavigating] = useState(false);
+    const isFocused = useIsFocused();
+
+    // Reset the spinner once this screen regains focus (e.g. navigating back from the order).
+    useEffect(() => {
+        if (isFocused) {
+            setIsNavigating(false);
+        }
+    }, [isFocused]);
+
+    // Give instant tap feedback, then push the heavy order.serialize()/navigate() off the
+    // touch-response path so it can't block the transition from starting.
+    const handlePress = useCallback(() => {
+        if (isNavigating) return;
+        setIsNavigating(true);
+        requestAnimationFrame(() => {
+            onPress?.();
+        });
+    }, [onPress, isNavigating]);
 
     const destination = useMemo(() => {
         const pickup = order.getAttribute('payload.pickup');
@@ -34,7 +55,8 @@ export const PastOrderCard = ({ order, onPress }) => {
     }, [order]);
 
     return (
-        <Pressable onPress={onPress}>
+        <Pressable onPress={handlePress}>
+            <LoadingOverlay visible={isNavigating} text='Opening order...' />
             <YStack bg='$background' borderRadius='$4' borderWidth={1} borderColor={isDarkMode ? '$borderColor' : '$borderColorWithShadow'}>
                 <YStack height={150} mb='$3' borderBottomWidth={1} borderColor={isDarkMode ? '$background' : '$borderColorWithShadow'}>
                     <LiveOrderRoute

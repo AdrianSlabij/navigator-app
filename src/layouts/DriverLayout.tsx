@@ -1,11 +1,17 @@
-import { useEffect } from 'react';
-import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { later } from '../utils';
-import { useNotification } from '../contexts/NotificationContext';
+import { useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
+import { EventRegister } from 'react-native-event-listeners';
+import LoadingOverlay from '../components/LoadingOverlay';
 import { useChat } from '../contexts/ChatContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { useOrderManager } from '../contexts/OrderManagerContext';
 import useFleetbase from '../hooks/use-fleetbase';
+import { later } from '../utils';
+
+// How long to show the tab-switch spinner for. Bounded/fixed rather than tied to the
+// destination screen's own "ready" signal, so it can never get stuck showing forever.
+const TAB_SWITCH_SPINNER_MS = 450;
 
 const getCurrentScreen = (tabNavigation) => {
     const tabState = tabNavigation.getState?.();
@@ -20,12 +26,35 @@ const getCurrentScreen = (tabNavigation) => {
     };
 };
 
-const DriverLayout = ({ children, state, descriptors, navigation: tabNavigation }) => {
+const DriverLayout = ({ children, descriptors, navigation: tabNavigation }) => {
     const navigation = useNavigation();
     const { fleetbase } = useFleetbase();
     const { getChannel } = useChat();
     const { addNotificationListener, removeNotificationListener } = useNotification();
     const { reloadActiveOrders } = useOrderManager();
+    const [isTabSwitching, setIsTabSwitching] = useState(false);
+    const hideTimeoutRef = useRef(null);
+
+    // Show the spinner the instant a tab bar button is pressed
+    useEffect(() => {
+        const listener = EventRegister.addEventListener('tab.switch.pressed', () => {
+            setIsTabSwitching(true);
+            if (hideTimeoutRef.current) {
+                clearTimeout(hideTimeoutRef.current);
+            }
+            hideTimeoutRef.current = setTimeout(() => {
+                setIsTabSwitching(false);
+                hideTimeoutRef.current = null;
+            }, TAB_SWITCH_SPINNER_MS);
+        });
+
+        return () => {
+            EventRegister.removeEventListener(listener);
+            if (hideTimeoutRef.current) {
+                clearTimeout(hideTimeoutRef.current);
+            }
+        };
+    }, []);
 
     useEffect(() => {
         if (!fleetbase) {
@@ -106,7 +135,12 @@ const DriverLayout = ({ children, state, descriptors, navigation: tabNavigation 
         };
     }, [addNotificationListener, removeNotificationListener, fleetbase, tabNavigation, navigation]);
 
-    return <View style={{ width: '100%', height: '100%', flex: 1 }}>{children}</View>;
+    return (
+        <View style={{ width: '100%', height: '100%', flex: 1 }}>
+            {children}
+            <LoadingOverlay visible={isTabSwitching} />
+        </View>
+    );
 };
 
 export default DriverLayout;

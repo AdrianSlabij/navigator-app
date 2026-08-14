@@ -67,10 +67,14 @@ const OrderScreen = ({ route }) => {
     const [currentDestination, setCurrentDestination] = useState();
     const [isAccepting, setIsAccepting] = useState(false);
     const [isMapMounted, setIsMapMounted] = useState(false);
+    // Defer mounting the native map by one frame so the rest of the screen can paint first
     useFocusEffect(
         useCallback(() => {
-            setIsMapMounted(true);
-            return () => setIsMapMounted(false);
+            const frame = requestAnimationFrame(() => setIsMapMounted(true));
+            return () => {
+                cancelAnimationFrame(frame);
+                setIsMapMounted(false);
+            };
         }, [])
     );
     const memoizedOrder = useMemo(() => order, [order?.id]);
@@ -480,6 +484,8 @@ const OrderScreen = ({ route }) => {
             return;
         }
 
+        let cancelled = false;
+
         const listenForUpdates = async () => {
             const listener = await listen(`order.${order.id}`, (event) => {
                 // only reload order if status changed
@@ -491,16 +497,21 @@ const OrderScreen = ({ route }) => {
                     reloadOrder();
                 }
             });
-            if (listener) {
+            if (listener && !cancelled) {
                 listenerRef.current = listener;
+            } else if (listener) {
+                // cleanup already ran before the subscription resolved — don't leak it
+                listener.stop();
             }
         };
 
         listenForUpdates();
 
         return () => {
+            cancelled = true;
             if (listenerRef.current) {
                 listenerRef.current.stop();
+                listenerRef.current = null;
             }
         };
     }, [listen, order.id]);

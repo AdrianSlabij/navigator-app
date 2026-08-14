@@ -19,6 +19,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
 import { Platform, StyleSheet } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
+import { EventRegister } from 'react-native-event-listeners';
 import { Image, Text, View, XStack, useTheme } from 'tamagui';
 import BackButton from '../components/BackButton';
 import Badge from '../components/Badge';
@@ -46,10 +47,10 @@ import EntityScreen from '../screens/EntityScreen';
 import FuelReportScreen from '../screens/FuelReportScreen';
 import IssueScreen from '../screens/IssueScreen';
 import OrderScreen from '../screens/OrderScreen';
+import PastOrdersScreen from '../screens/PastOrdersScreen';
 import ProofOfDeliveryScreen from '../screens/ProofOfDeliveryScreen';
 import TrainingModuleScreen from '../screens/TrainingModuleScreen';
 import TrainingQuizScreen from '../screens/TrainingQuizScreen';
-import PastOrdersScreen from '../screens/PastOrdersScreen';
 import ValidationWizardScreen from '../screens/ValidationWizardScreen';
 import { config, get, getTheme, navigatorConfig, toArray } from '../utils';
 import { configCase } from '../utils/format';
@@ -529,6 +530,12 @@ const DriverAccountTab = createNativeStackNavigator({
 
 const DriverNavigator = createBottomTabNavigator({
     layout: DriverLayout,
+    // Fires the instant a tab bar button is pressed, before the navigation state changes
+    screenListeners: {
+        tabPress: () => {
+            EventRegister.emit('tab.switch.pressed');
+        },
+    },
     screenOptions: ({ route, navigation }) => {
         const theme = useTheme();
         const { isDarkMode } = useAppTheme();

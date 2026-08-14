@@ -1,19 +1,18 @@
-import React, { useState, useRef, useMemo } from 'react';
-import { StyleSheet } from 'react-native';
-import { Text, YStack, XStack, useTheme } from 'tamagui';
-import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faBuilding, faTruck } from '@fortawesome/free-solid-svg-icons';
 import { Driver, Place } from '@fleetbase/sdk';
-import { useLocation } from '../contexts/LocationContext';
-import { restoreFleetbasePlace, getCoordinates } from '../utils/location';
-import { config, last, first } from '../utils';
-import { formattedAddressFromPlace } from '../utils/location';
-import { toast } from '../utils/toast';
+import { faBuilding, faTruck } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { StyleSheet } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
-import LocationMarker from './LocationMarker';
-import DriverMarker from './DriverMarker';
+import { Spinner, Text, XStack, YStack, useTheme } from 'tamagui';
+import { useLocation } from '../contexts/LocationContext';
 import useFleetbase from '../hooks/use-fleetbase';
+import { config, first, last } from '../utils';
+import { formattedAddressFromPlace, getCoordinates, restoreFleetbasePlace } from '../utils/location';
+import { haversine } from '../utils/math';
+import DriverMarker from './DriverMarker';
+import LocationMarker from './LocationMarker';
 
 // Utility functions
 const calculateDeltas = (zoom) => {
@@ -37,6 +36,22 @@ const getPlaceCoords = (place) => {
     const [latitude, longitude] = getCoordinates(place);
     return { latitude, longitude };
 };
+
+// Only accept a new coordinate once it has moved meaningfully from the last one used.
+const ROUTE_ORIGIN_MOVE_THRESHOLD_METERS = 75;
+function useStableCoords(rawCoords, thresholdMeters = ROUTE_ORIGIN_MOVE_THRESHOLD_METERS) {
+    const lastStableRef = useRef(rawCoords);
+
+    return useMemo(() => {
+        const prev = lastStableRef.current;
+        const moved = haversine([prev.latitude, prev.longitude], [rawCoords.latitude, rawCoords.longitude]);
+        if (moved > thresholdMeters) {
+            lastStableRef.current = rawCoords;
+            return rawCoords;
+        }
+        return prev;
+    }, [rawCoords.latitude, rawCoords.longitude, thresholdMeters]);
+}
 
 // Reusable marker label component
 const MarkerLabel = ({ label, markerOffset, theme, icon }) => (
@@ -97,8 +112,8 @@ const LiveOrderRoute = ({
     let end = focusCurrentDestination ? currentDestination : restoreFleetbasePlace(endWaypoint, adapter);
 
     // Get the coordinates for start and end places
-    const origin = getPlaceCoords(start);
-    const destination = getPlaceCoords(end);
+    const origin = useStableCoords(getPlaceCoords(start));
+    const destination = useStableCoords(getPlaceCoords(end));
 
     // Get only the "middle" waypoints (excluding the first and last ones)
     const middleWaypoints = focusCurrentDestination ? [] : waypoints.slice(1, -1).map((waypoint) => ({ coordinate: getPlaceCoords(waypoint), ...waypoint }));
@@ -116,6 +131,14 @@ const LiveOrderRoute = ({
     const [zoomLevel, setZoomLevel] = useState(calculateZoomLevel(initialDeltas));
     const markerOffset = calculateOffset(zoomLevel);
     const driverAssigned = order.getAttribute('driver_assigned') ? new Driver(order.getAttribute('driver_assigned')) : null;
+
+    // Defer mounting the native map by one frame so a screen/list rendering many of these
+    // at once (e.g. an order list)
+    const [isMapReady, setIsMapReady] = useState(false);
+    useEffect(() => {
+        const frame = requestAnimationFrame(() => setIsMapReady(true));
+        return () => cancelAnimationFrame(frame);
+    }, []);
 
     const handleRegionChangeComplete = (region) => {
         setMapRegion(region);
@@ -143,6 +166,14 @@ const LiveOrderRoute = ({
             500
         );
     };
+
+    if (!isMapReady) {
+        return (
+            <YStack flex={1} alignItems='center' justifyContent='center' overflow='hidden' width={width} height={height} bg='$surface' {...props}>
+                <Spinner size='small' color='$textSecondary' />
+            </YStack>
+        );
+    }
 
     return (
         <YStack flex={1} position='relative' overflow='hidden' width={width} height={height} {...props}>

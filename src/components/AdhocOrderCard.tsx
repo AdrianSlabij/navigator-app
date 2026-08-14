@@ -1,5 +1,6 @@
 import React, { FC, useEffect, useState, useMemo, useCallback } from 'react';
 import { Pressable, Alert } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { YStack, XStack, Text, Button, Spinner, styled, useTheme } from 'tamagui';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBox, faLocationDot, faBan, faCheck } from '@fortawesome/free-solid-svg-icons';
@@ -27,6 +28,25 @@ export const AdhocOrderCard = ({ order, onPress, onAccept, onDismiss }) => {
     const { location } = useLocation();
     const { isDarkMode } = useAppTheme();
     const [isAccepting, setIsAccepting] = useState(false);
+    const [isNavigating, setIsNavigating] = useState(false);
+    const isFocused = useIsFocused();
+
+    // Reset the spinner once this screen regains focus (e.g. navigating back from the order).
+    useEffect(() => {
+        if (isFocused) {
+            setIsNavigating(false);
+        }
+    }, [isFocused]);
+
+    // Give instant tap feedback, then push the heavy order.serialize()/navigate() off the
+    // touch-response path so it can't block the transition from starting.
+    const handlePress = useCallback(() => {
+        if (isNavigating) return;
+        setIsNavigating(true);
+        requestAnimationFrame(() => {
+            onPress?.();
+        });
+    }, [onPress, isNavigating]);
 
     const destination = useMemo(() => {
         const pickup = order.getAttribute('payload.pickup');
@@ -87,8 +107,9 @@ export const AdhocOrderCard = ({ order, onPress, onAccept, onDismiss }) => {
     }, [order]);
 
     return (
-        <Pressable onPress={onPress}>
-            <LoadingOverlay isVisible={isAccepting} text='Accepting and assigning order...' />
+        <Pressable onPress={handlePress}>
+            <LoadingOverlay visible={isAccepting} text='Accepting and assigning order...' />
+            <LoadingOverlay visible={isNavigating} text='Opening order...' />
             <YStack bg='$info' borderRadius='$4' borderWidth={1} borderColor='$infoBorder'>
                 <YStack height={150} borderBottomWidth={1} borderColor='$infoBorder'>
                     <LiveOrderRoute

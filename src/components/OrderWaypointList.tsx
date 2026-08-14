@@ -1,12 +1,10 @@
+import { faEye } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import React, { useState } from 'react';
 import { Linking } from 'react-native';
-import { XStack, YStack, Text, Button, useTheme } from 'tamagui';
-import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faEye } from '@fortawesome/free-solid-svg-icons';
 import Collapsible from 'react-native-collapsible';
-import Badge from './Badge';
-import { isArray, isEmpty } from '../utils';
-import { lowercase } from '../utils/format';
+import { Button, Text, useTheme, XStack, YStack } from 'tamagui';
+import { isArray } from '../utils';
 
 export const COLLAPSE_POINT = 2;
 export const CIRCLE_SIZE = 32;

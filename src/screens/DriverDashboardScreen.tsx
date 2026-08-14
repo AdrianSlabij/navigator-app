@@ -1,9 +1,9 @@
-import { useNavigation } from '@react-navigation/native';
-import React, { useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import MapView, { Callout, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { Text, YStack, useTheme } from 'tamagui';
+import { Spinner, Text, YStack, useTheme } from 'tamagui';
 import { useLocation } from '../contexts/LocationContext';
 import { useOrderManager } from '../contexts/OrderManagerContext';
 import useAppTheme from '../hooks/use-app-theme';
@@ -99,6 +99,16 @@ const DriverDashboardScreen = () => {
     const [isFollowingUser, setIsFollowingUser] = useState(true);
     const [isOrdersMenuOpen, setIsOrdersMenuOpen] = useState(false);
     const [mapCenter, setMapCenter] = useState(null);
+    const [isMapMounted, setIsMapMounted] = useState(false);
+
+    // Defer the native MapView mount until this tab is actually focused, so switching
+    // into this tab doesn't stall on native map initialization mid-transition.
+    useFocusEffect(
+        useCallback(() => {
+            setIsMapMounted(true);
+            return () => setIsMapMounted(false);
+        }, [])
+    );
 
     useEffect(() => {
         if (location?.coords && isFollowingUser && mapRef.current) {
@@ -133,9 +143,18 @@ const DriverDashboardScreen = () => {
     const lat = hasCoords ? Number(location.coords.latitude) : 0;
     const lng = hasCoords ? Number(location.coords.longitude) : 0;
 
+    // React.useEffect(() => {
+    //     console.log('DEBUG - Current Location:', {
+    //         hasCoords,
+    //         latitude: lat,
+    //         longitude: lng,
+    //         rawObject: location,
+    //     });
+    // }, [lat, lng, location]);
+
     return (
         <YStack flex={1} bg='$background' position='relative' pointerEvents='box-none'>
-            {hasCoords ? (
+            {hasCoords && isMapMounted ? (
                 <MapView
                     ref={mapRef}
                     provider={PROVIDER_GOOGLE}
@@ -248,8 +267,9 @@ const DriverDashboardScreen = () => {
                     })}
                 </MapView>
             ) : (
-                <YStack flex={1} alignItems='center' justifyContent='center'>
-                    <Text color='$textSecondary'>Acquiring location...</Text>
+                <YStack flex={1} alignItems='center' justifyContent='center' gap='$3'>
+                    <Spinner size='large' color='$textPrimary' />
+                    <Text color='$textSecondary'>{isMapMounted ? 'Acquiring location...' : 'Loading map...'}</Text>
                 </YStack>
             )}
 
