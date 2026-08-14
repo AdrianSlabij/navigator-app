@@ -1,11 +1,11 @@
-import React, { createContext, useState, useEffect, useCallback, useContext, useMemo } from 'react';
-import BackgroundGeolocation from 'react-native-background-geolocation';
-import BackgroundFetch from 'react-native-background-fetch';
 import { Place, Point } from '@fleetbase/sdk';
-import { isEmpty, config } from '../utils';
-import { useAuth } from './AuthContext';
-import useStorage from '../hooks/use-storage';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import BackgroundFetch from 'react-native-background-fetch';
+import BackgroundGeolocation from 'react-native-background-geolocation';
 import useFleetbase from '../hooks/use-fleetbase';
+import useStorage from '../hooks/use-storage';
+import { config, isEmpty } from '../utils';
+import { useAuth } from './AuthContext';
 
 const LocationContext = createContext({
     location: null,
@@ -74,22 +74,22 @@ export const LocationProvider = ({ children }) => {
         };
     }, [adapter, driver, authToken]);
 
+    // Callback to handle location updates.
+    const onLocation = useCallback((location) => {
+        //console.log('[BackgroundGeolocation] onLocation:', location);
+        setLocation(location);
+    }, []);
+
     // Callback to handle activity updates.
     const onMotionChange = useCallback(
         (event) => {
-            console.log('[BackgroundGeolocation] onMotionChange:', event);
+            //console.log('[BackgroundGeolocation] onMotionChange:', event);
             if (event.location) {
                 onLocation(event.location);
             }
         },
         [onLocation]
     );
-
-    // Callback to handle location updates.
-    const onLocation = useCallback((location) => {
-        console.log('[BackgroundGeolocation] onLocation:', location);
-        setLocation(location);
-    }, []);
 
     // Callback to handle location errors.
     const onLocationError = useCallback((error) => {
@@ -100,7 +100,7 @@ export const LocationProvider = ({ children }) => {
     const startTracking = useCallback(() => {
         BackgroundGeolocation.start(() => {
             setIsTracking(true);
-            console.log('[BackgroundGeolocation] Tracking started');
+            //console.log('[BackgroundGeolocation] Tracking started');
         });
     }, []);
 
@@ -108,7 +108,7 @@ export const LocationProvider = ({ children }) => {
     const stopTracking = useCallback(() => {
         BackgroundGeolocation.stop(() => {
             setIsTracking(false);
-            console.log('[BackgroundGeolocation] Tracking stopped');
+            //console.log('[BackgroundGeolocation] Tracking stopped');
         });
     }, []);
 
@@ -132,7 +132,7 @@ export const LocationProvider = ({ children }) => {
                 ...getHttpConfig(),
             },
             (state) => {
-                console.log('[BackgroundGeolocation] is ready:', state);
+                //console.log('[BackgroundGeolocation] is ready:', state);
                 if (isOnline) {
                     startTracking();
                 }
