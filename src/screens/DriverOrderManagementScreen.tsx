@@ -229,6 +229,10 @@ const DriverOrderManagementScreen = () => {
                         showsVerticalScrollIndicator={false}
                         showsHorizontalScrollIndicator={false}
                         ItemSeparatorComponent={() => <Separator borderBottomWidth={1} borderColor='$borderColorWithShadow' />}
+                        initialNumToRender={3}
+                        maxToRenderPerBatch={3}
+                        windowSize={5}
+                        removeClippedSubviews
                     />
                 </YStack>
             </YStack>
@@ -292,6 +296,10 @@ const DriverOrderManagementScreen = () => {
                 ItemSeparatorComponent={() => <Separator borderBottomWidth={1} borderColor='$borderColorWithShadow' />}
                 ListFooterComponent={<Spacer height={200} />}
                 ListEmptyComponent={<NoOrders />}
+                initialNumToRender={3}
+                maxToRenderPerBatch={3}
+                windowSize={5}
+                removeClippedSubviews
             />
         </YStack>
     );
