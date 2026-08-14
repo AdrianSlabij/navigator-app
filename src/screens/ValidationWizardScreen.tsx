@@ -200,6 +200,7 @@ const ValidationWizardScreen = ({ route }) => {
             const payload = {
                 validationId: internalValidationId,
                 fleetbaseDriverId: driver.id,
+                fleetbaseOrderId: order.id,
                 reportType: 'LVA Field Report',
                 reportDetails: notes,
                 resultScore: store.resultScore,
@@ -275,7 +276,7 @@ const ValidationWizardScreen = ({ route }) => {
                     </YStack>
 
                     <YStack flex={1} overflow='hidden' borderRadius='$4'>
-                        {isScanning && <QrCodeScanner onScan={handleQrCodeScan} />}
+                        {isScanning && <QrCodeScanner onScan={handleQrCodeScan} manualCapture />}
                     </YStack>
 
                     {/* DEV BYPASS: Remove before pushing to production */}
